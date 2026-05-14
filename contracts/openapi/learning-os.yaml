@@ -1,0 +1,378 @@
+openapi: 3.1.0
+info:
+  title: 我的师傅 Learning OS API
+  version: 0.1.0
+  description: Phase 1 fixture-backed Rust BFF contract for the PC web Learning OS UI.
+servers:
+  - url: http://127.0.0.1:4010
+paths:
+  /health:
+    get:
+      summary: Check API process health.
+      responses:
+        "200":
+          description: API process is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/tasks/current:
+    get:
+      summary: Read the current Learning OS task and desktop shortcuts.
+      responses:
+        "200":
+          description: Current fixture-backed task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentTaskResponse"
+  /api/generation-jobs:
+    post:
+      summary: Create a fixture-backed generation job.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGenerationJobRequest"
+      responses:
+        "201":
+          description: Generation job created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationJobResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/generation-jobs/{job_id}:
+    get:
+      summary: Read a generation job by id.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Generation job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationJobResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/generation-jobs/{job_id}/events:
+    get:
+      summary: Stream generation job progress events.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Server-sent events for future Agent progress.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/questions/{question_set_id}:
+    get:
+      summary: Read a generated question set.
+      parameters:
+        - $ref: "#/components/parameters/QuestionSetId"
+      responses:
+        "200":
+          description: Question set and questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionSetResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/mistakes:
+    get:
+      summary: Read mistake groups and recent wrong question.
+      responses:
+        "200":
+          description: Mistake groups.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MistakesResponse"
+  /api/knowledge/search:
+    get:
+      summary: Search fixture-backed knowledge points.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Knowledge search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSearchResponse"
+  /api/reports/current:
+    get:
+      summary: Read the current learning report.
+      responses:
+        "200":
+          description: Current fixture-backed report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResponse"
+components:
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+    QuestionSetId:
+      name: question_set_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Request failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Requested fixture resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    HealthResponse:
+      type: object
+      required: [service, status, runtime, toolRegistry]
+      properties:
+        service:
+          type: string
+        status:
+          type: string
+        runtime:
+          type: string
+        toolRegistry:
+          type: string
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+    CurrentTaskResponse:
+      type: object
+      required: [task, learningLoop, desktopShortcuts]
+      properties:
+        task:
+          $ref: "#/components/schemas/CurrentTask"
+        learningLoop:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningLoopStep"
+        desktopShortcuts:
+          type: array
+          items:
+            $ref: "#/components/schemas/DesktopShortcut"
+    CurrentTask:
+      type: object
+      required: [title, status, subject, source, goal, questionCount, duration, mastery]
+      properties:
+        title:
+          type: string
+        status:
+          type: string
+        subject:
+          type: string
+        source:
+          type: string
+        goal:
+          type: string
+        questionCount:
+          type: integer
+        duration:
+          type: string
+        mastery:
+          type: integer
+    LearningLoopStep:
+      type: object
+      required: [id, label, windowId]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        windowId:
+          type: string
+    DesktopShortcut:
+      type: object
+      required: [id, label, detail, windowId, side, x, y, fileColor]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        detail:
+          type: string
+        windowId:
+          type: string
+        side:
+          type: string
+        x:
+          type: integer
+        y:
+          type: integer
+        fileColor:
+          type: string
+    CreateGenerationJobRequest:
+      type: object
+      required: [learningGoal, subject, questionCount]
+      properties:
+        learningGoal:
+          type: string
+        subject:
+          type: string
+        questionCount:
+          type: integer
+    GenerationJobResponse:
+      type: object
+      required: [job]
+      properties:
+        job:
+          $ref: "#/components/schemas/GenerationJob"
+    GenerationJob:
+      type: object
+      required: [id, status, questionSetId, progress, message, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        questionSetId:
+          type: string
+        progress:
+          type: integer
+        message:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+    QuestionSetResponse:
+      type: object
+      required: [questionSetId, title, source, questions]
+      properties:
+        questionSetId:
+          type: string
+        title:
+          type: string
+        source:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+    Question:
+      type: object
+      required: [id, type, title, stem, options, answer, explanation, knowledge, difficulty, status]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        stem:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        answer:
+          type: string
+        explanation:
+          type: string
+        knowledge:
+          type: array
+          items:
+            type: string
+        difficulty:
+          type: string
+        status:
+          type: string
+    MistakesResponse:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/MistakeGroup"
+        recentWrongQuestion:
+          $ref: "#/components/schemas/Question"
+    MistakeGroup:
+      type: object
+      required: [knowledge, count, reason, recommendation]
+      properties:
+        knowledge:
+          type: string
+        count:
+          type: integer
+        reason:
+          type: string
+        recommendation:
+          type: string
+    KnowledgeSearchResponse:
+      type: object
+      required: [query, results]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgePoint"
+    KnowledgePoint:
+      type: object
+      required: [name, coverage, source]
+      properties:
+        name:
+          type: string
+        coverage:
+          type: integer
+        source:
+          type: string
+    ReportResponse:
+      type: object
+      required: [metrics, recommendation]
+      properties:
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportMetric"
+        recommendation:
+          type: string
+    ReportMetric:
+      type: object
+      required: [label, value, detail]
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        detail:
+          type: string
