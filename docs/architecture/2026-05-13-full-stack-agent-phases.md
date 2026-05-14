@@ -159,6 +159,60 @@ Exit criteria:
 - OpenAPI contract exists
 - API tests cover success and error responses
 
+## Phase 1.5: Model Gateway Foundation
+
+Goal: prepare the backend to call different model providers through New API or another
+OpenAI-compatible gateway without exposing model keys to the frontend.
+
+Recommended request path:
+
+```text
+Next.js frontend
+  -> Rust BFF / Agent Runtime
+    -> Model Gateway adapter
+      -> New API
+        -> upstream model providers
+```
+
+Scope:
+
+- add a Rust `model-gateway` crate
+- define gateway config from environment variables
+- default to New API-compatible `/v1/chat/completions`
+- build typed OpenAI-compatible chat completion request JSON
+- expose only non-sensitive gateway status through Rust BFF
+- keep API keys and provider routing outside the frontend
+
+Environment variables:
+
+```text
+MY_SIFU_LLM_GATEWAY_PROVIDER=new-api
+MY_SIFU_LLM_GATEWAY_BASE_URL=http://127.0.0.1:3000
+MY_SIFU_LLM_GATEWAY_API_KEY=
+MY_SIFU_DEFAULT_MODEL=gpt-4o-mini
+```
+
+Rust ownership:
+
+- model gateway adapter boundary
+- model config loading
+- API key handling
+- frontend-safe status reporting
+- later: model capability registry, retry policy, timeout policy, request audit
+
+Python ownership:
+
+- none in this phase
+- later Python services can request model calls through Rust or receive model outputs from Rust
+
+Exit criteria:
+
+- `crates/model-gateway` exists
+- tests cover default config, environment override config, and OpenAI-compatible request shape
+- Rust BFF exposes `GET /api/model-gateway/status`
+- status endpoint never returns raw API keys
+- frontend still does not call New API directly
+
 ## Phase 2: Domain Model And Persistence Foundation
 
 Goal: define durable entities before building Agent behavior.
@@ -204,6 +258,78 @@ Exit criteria:
 - migrations can create a clean database
 - core repositories have integration tests
 - AgentRun and event records can be persisted and replayed
+
+### Phase 2a: Domain Models And In-Memory Persistence
+
+Goal: establish stable Rust domain models and repository contracts before introducing PostgreSQL.
+
+Scope:
+
+- define core Rust domain entities
+- define repository traits for Learning OS read models and AgentRun persistence
+- add an in-memory repository for tests and fixture-backed API responses
+- support append/read replay for AgentRun events
+- keep API response contracts unchanged
+
+Entities covered in this step:
+
+```text
+User
+LearningProfile
+Task
+QuestionSet / Question response contracts
+AnswerAttempt
+Mistake
+KnowledgeSource
+RetrievalResult
+AgentRun
+AgentRunEvent
+ToolCall
+EvaluationResult
+MemoryItem
+```
+
+Out of scope:
+
+- PostgreSQL migrations
+- sqlx repositories
+- authentication
+- real Memory service
+- real RAG ingestion or vector search
+- real model calls
+
+Exit criteria:
+
+- domain model serialization tests pass
+- in-memory repository tests pass
+- AgentRun events can be appended and replayed in sequence order
+- Rust BFF can read fixture-backed data through the repository boundary
+
+### Phase 2b: PostgreSQL Persistence
+
+Goal: replace or complement the in-memory repository with real database-backed persistence.
+
+Scope:
+
+- add PostgreSQL migrations
+- add database connection pool config
+- implement sqlx repositories
+- add integration tests against local database or Docker compose
+- persist AgentRun and event records durably
+
+Initial implementation can keep Learning OS read models fixture-backed while making AgentRun and
+AgentRunEvent durable first. This keeps the first database step focused on replayable runtime state,
+which is the highest-leverage persistence boundary for later State, Tool Manager, Evaluation, and
+observability work.
+
+Exit criteria:
+
+- migration creates core Phase 2 tables
+- database URL config can be loaded and redacted for logs
+- Postgres repository can run migrations
+- Postgres repository can create/read AgentRun records
+- Postgres repository can append/replay AgentRunEvent records in sequence order
+- local checks do not require PostgreSQL unless `MY_SIFU_DATABASE_URL` is explicitly set
 
 ## Phase 3: Memory Service
 
@@ -975,6 +1101,7 @@ Use this order unless a product demo requires otherwise:
 ```text
 0. Repo foundation
 1. API contract and Rust BFF skeleton
+1.5. Model Gateway Foundation
 2. Domain model and persistence
 3. Memory
 4. RAG / Knowledge Retrieval

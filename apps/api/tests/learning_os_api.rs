@@ -116,3 +116,15 @@ async fn unknown_question_set_returns_frontend_facing_error() {
     assert_eq!(body["error"]["code"], "not_found");
     assert_eq!(body["error"]["message"], "question set not found");
 }
+
+#[tokio::test]
+async fn model_gateway_status_exposes_only_non_sensitive_config() {
+    let (status, body) = request_json("GET", "/api/model-gateway/status", None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["provider"], "new-api");
+    assert_eq!(body["baseUrl"], "http://127.0.0.1:3000");
+    assert_eq!(body["defaultModel"], "gpt-4o-mini");
+    assert_eq!(body["apiKeyConfigured"], false);
+    assert_eq!(body["apiKeyHint"], "missing");
+}

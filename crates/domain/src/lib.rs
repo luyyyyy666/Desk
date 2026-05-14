@@ -25,6 +25,281 @@ pub enum AgentRunStatus {
     Cancelled,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct User {
+    pub id: String,
+    pub display_name: String,
+    pub created_at: String,
+}
+
+impl User {
+    pub fn fixture() -> Self {
+        Self {
+            id: "user_fixture_001".to_string(),
+            display_name: "默认学习者".to_string(),
+            created_at: "2026-05-14T16:00:00+08:00".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LearningProfile {
+    pub id: String,
+    pub user_id: String,
+    pub subject: String,
+    pub stage: LearningStage,
+    pub textbook: String,
+    pub preference_summary: String,
+}
+
+impl LearningProfile {
+    pub fn fixture_for_user(user_id: String) -> Self {
+        Self {
+            id: "profile_fixture_001".to_string(),
+            user_id,
+            subject: "数学".to_string(),
+            stage: LearningStage::Grade8,
+            textbook: "人教版 · 八年级下册".to_string(),
+            preference_summary: "解析详细，难度中等".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LearningStage {
+    Grade7,
+    Grade8,
+    Grade9,
+    HighSchool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Task {
+    pub id: String,
+    pub user_id: String,
+    pub title: String,
+    pub learning_goal: String,
+    pub subject: String,
+    pub source: String,
+    pub question_count: u16,
+    pub status: TaskStatus,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl Task {
+    pub fn new_fixture() -> Self {
+        Self {
+            id: "task_fixture_linear_function_001".to_string(),
+            user_id: "user_fixture_001".to_string(),
+            title: "一次函数专项训练".to_string(),
+            learning_goal: "巩固一次函数图像、解析式与实际应用题".to_string(),
+            subject: "八年级数学".to_string(),
+            source: "人教版 · 第十九章".to_string(),
+            question_count: 12,
+            status: TaskStatus::Active,
+            created_at: "2026-05-14T16:00:00+08:00".to_string(),
+            updated_at: "2026-05-14T16:00:00+08:00".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    Draft,
+    Active,
+    Completed,
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerAttempt {
+    pub id: String,
+    pub question_id: String,
+    pub user_answer: String,
+    pub is_correct: bool,
+    pub submitted_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Mistake {
+    pub id: String,
+    pub question_id: String,
+    pub knowledge: String,
+    pub reason: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeSource {
+    pub id: String,
+    pub source_type: String,
+    pub title: String,
+    pub version: String,
+    pub trust_score: f64,
+}
+
+impl KnowledgeSource {
+    pub fn fixture() -> Self {
+        Self {
+            id: "kb_textbook_math_rj_8_001".to_string(),
+            source_type: "textbook".to_string(),
+            title: "八年级数学下册 - 一次函数".to_string(),
+            version: "人教版".to_string(),
+            trust_score: 0.95,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetrievalResult {
+    pub id: String,
+    pub source_id: String,
+    pub query: String,
+    pub snippet: String,
+    pub relevance_score: f64,
+    pub trust_score: f64,
+}
+
+impl RetrievalResult {
+    pub fn fixture(source_id: String) -> Self {
+        Self {
+            id: "retrieval_fixture_001".to_string(),
+            source_id,
+            query: "一次函数".to_string(),
+            snippet: "一次函数通常考查函数表达式、图像性质、实际应用等内容。".to_string(),
+            relevance_score: 0.92,
+            trust_score: 0.95,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvaluationResult {
+    pub id: String,
+    pub agent_run_id: String,
+    pub score: f64,
+    pub passed: bool,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryItem {
+    pub id: String,
+    pub user_id: String,
+    pub memory_type: String,
+    pub content: String,
+    pub source: String,
+    pub confidence_basis: String,
+}
+
+impl MemoryItem {
+    pub fn fixture_for_user(user_id: String) -> Self {
+        Self {
+            id: "memory_fixture_001".to_string(),
+            user_id,
+            memory_type: "preference".to_string(),
+            content: "用户偏好中等难度，解析需要详细。".to_string(),
+            source: "fixture".to_string(),
+            confidence_basis: "explicit".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRun {
+    pub id: String,
+    pub task_id: String,
+    pub status: AgentRunStatus,
+    pub current_step: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AgentRun {
+    pub fn new_fixture() -> Self {
+        Self {
+            id: "run_fixture_linear_function_001".to_string(),
+            task_id: "task_fixture_linear_function_001".to_string(),
+            status: AgentRunStatus::Completed,
+            current_step: "completed".to_string(),
+            created_at: "2026-05-14T16:00:00+08:00".to_string(),
+            updated_at: "2026-05-14T16:00:08+08:00".to_string(),
+        }
+    }
+
+    pub fn new_pending(id: String, task_id: String) -> Self {
+        Self {
+            id,
+            task_id,
+            status: AgentRunStatus::Pending,
+            current_step: "created".to_string(),
+            created_at: "2026-05-14T16:00:00+08:00".to_string(),
+            updated_at: "2026-05-14T16:00:00+08:00".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRunEvent {
+    pub id: String,
+    pub agent_run_id: String,
+    pub sequence: u64,
+    pub kind: AgentRunEventKind,
+    pub payload: serde_json::Value,
+    pub created_at: String,
+}
+
+impl AgentRunEvent {
+    pub fn new(
+        agent_run_id: String,
+        sequence: u64,
+        kind: AgentRunEventKind,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            id: format!("event_{agent_run_id}_{sequence}"),
+            agent_run_id,
+            sequence,
+            kind,
+            payload,
+            created_at: "2026-05-14T16:00:00+08:00".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentRunEventKind {
+    GenerationJobCreated,
+    QuestionSetReady,
+    ToolCallStarted,
+    ToolCallCompleted,
+    EvaluationCompleted,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCall {
+    pub id: String,
+    pub agent_run_id: String,
+    pub tool_name: String,
+    pub status: String,
+    pub input: serde_json::Value,
+    pub output: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiErrorEnvelope {

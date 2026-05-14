@@ -1,12 +1,9 @@
 [package]
-name = "persistence"
+name = "model-gateway"
 edition.workspace = true
 license.workspace = true
 version.workspace = true
 
 [dependencies]
-domain.workspace = true
+serde.workspace = true
 serde_json.workspace = true
-sqlx.workspace = true
-tokio.workspace = true
-uuid.workspace = true

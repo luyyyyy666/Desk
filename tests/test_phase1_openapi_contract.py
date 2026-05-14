@@ -18,9 +18,11 @@ def test_learning_os_openapi_contract_declares_phase1_paths() -> None:
         "/api/questions/{question_set_id}:",
         "/api/mistakes:",
         "/api/knowledge/search:",
+        "/api/model-gateway/status:",
         "/api/reports/current:",
     ]:
         assert path in content
 
     assert "ApiError" in content
+    assert "ModelGatewayStatus" in content
     assert "text/event-stream" in content

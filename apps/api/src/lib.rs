@@ -10,6 +10,8 @@ use domain::{
     ApiErrorBody, ApiErrorEnvelope, CreateGenerationJobRequest, GenerationJobResponse,
     HealthResponse, KnowledgeSearchResponse, fixtures,
 };
+use model_gateway::{ModelGatewayConfig, ModelGatewayPublicStatus};
+use persistence::{InMemoryLearningRepository, LearningRepository};
 use serde::Deserialize;
 use tool_runtime::ToolRegistryInfo;
 
@@ -27,6 +29,7 @@ pub fn app() -> Router {
         .route("/api/mistakes", get(mistakes))
         .route("/api/knowledge/search", get(search_knowledge))
         .route("/api/reports/current", get(current_report))
+        .route("/api/model-gateway/status", get(model_gateway_status))
 }
 
 pub async fn health() -> Json<HealthResponse> {
@@ -39,7 +42,11 @@ pub async fn health() -> Json<HealthResponse> {
 }
 
 async fn current_task() -> Json<domain::CurrentTaskResponse> {
-    Json(fixtures::current_task())
+    Json(
+        learning_repository()
+            .current_task()
+            .expect("fixture repository should contain a current task"),
+    )
 }
 
 async fn create_generation_job(
@@ -52,17 +59,20 @@ async fn create_generation_job(
         return Err(ApiError::bad_request("invalid generation job request"));
     }
 
-    Ok((StatusCode::CREATED, Json(fixtures::generation_job())))
+    let job = learning_repository()
+        .generation_job(fixtures::FIXTURE_JOB_ID)
+        .expect("fixture repository should contain a generation job");
+
+    Ok((StatusCode::CREATED, Json(job)))
 }
 
 async fn generation_job(
     Path(job_id): Path<String>,
 ) -> Result<Json<GenerationJobResponse>, ApiError> {
-    if job_id != fixtures::FIXTURE_JOB_ID {
-        return Err(ApiError::not_found("generation job not found"));
-    }
-
-    Ok(Json(fixtures::generation_job()))
+    learning_repository()
+        .generation_job(&job_id)
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("generation job not found"))
 }
 
 async fn generation_events(Path(job_id): Path<String>) -> Result<Response, ApiError> {
@@ -93,11 +103,14 @@ async fn question_set(
         return Err(ApiError::not_found("question set not found"));
     }
 
-    Ok(Json(fixtures::question_set()))
+    learning_repository()
+        .question_set(&question_set_id)
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("question set not found"))
 }
 
 async fn mistakes() -> Json<domain::MistakesResponse> {
-    Json(fixtures::mistakes())
+    Json(learning_repository().mistakes())
 }
 
 #[derive(Debug, Deserialize)]
@@ -109,13 +122,22 @@ struct KnowledgeSearchQuery {
 async fn search_knowledge(
     Query(query): Query<KnowledgeSearchQuery>,
 ) -> Json<KnowledgeSearchResponse> {
-    Json(fixtures::knowledge_search(
-        query.query.unwrap_or_else(|| "一次函数".to_string()),
-    ))
+    Json(
+        learning_repository()
+            .knowledge_search(query.query.unwrap_or_else(|| "一次函数".to_string())),
+    )
 }
 
 async fn current_report() -> Json<domain::ReportResponse> {
-    Json(fixtures::report())
+    Json(learning_repository().current_report())
+}
+
+async fn model_gateway_status() -> Json<ModelGatewayPublicStatus> {
+    Json(ModelGatewayConfig::from_env().public_status())
+}
+
+fn learning_repository() -> InMemoryLearningRepository {
+    InMemoryLearningRepository::with_fixture_data()
 }
 
 #[derive(Debug, Clone)]

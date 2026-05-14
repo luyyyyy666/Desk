@@ -27,3 +27,6 @@ dev-api:
 
 dev-web:
     cd frontend; npm run dev -- --hostname 127.0.0.1 --port 3001
+
+postgres-check:
+    $env:CARGO_HOME='E:\DevData\cargo'; cargo test -p persistence --test postgres_persistence_contract

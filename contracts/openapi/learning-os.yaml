@@ -122,6 +122,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportResponse"
+  /api/model-gateway/status:
+    get:
+      summary: Read non-sensitive model gateway configuration status.
+      responses:
+        "200":
+          description: Public New API gateway status. Raw API keys are never returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelGatewayStatus"
 components:
   parameters:
     JobId:
@@ -376,3 +386,21 @@ components:
           type: string
         detail:
           type: string
+    ModelGatewayStatus:
+      type: object
+      required: [provider, baseUrl, defaultModel, apiKeyConfigured, apiKeyHint]
+      properties:
+        provider:
+          type: string
+          example: new-api
+        baseUrl:
+          type: string
+          example: http://127.0.0.1:3000
+        defaultModel:
+          type: string
+          example: gpt-4o-mini
+        apiKeyConfigured:
+          type: boolean
+        apiKeyHint:
+          type: string
+          enum: [configured, missing]
