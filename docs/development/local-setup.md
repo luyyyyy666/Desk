@@ -176,6 +176,41 @@ $env:MY_SIFU_DATABASE_URL='postgres://my_sifu:my_sifu@127.0.0.1:5432/my_sifu'
 just postgres-check
 ```
 
+## Planned Docker Runtime
+
+Phase 2.5 will add a local Docker Compose runtime for development dependencies.
+
+Planned services:
+
+```text
+postgres    # Phase 2b database checks and future durable runtime data
+new-api     # local model gateway service
+redis       # future queue/cache/rate-limit dependency
+minio       # future uploads, exports, and artifacts
+```
+
+Planned files:
+
+```text
+docker-compose.yml
+.env.docker.example
+docker/postgres/
+```
+
+Planned commands:
+
+```powershell
+just docker-up
+just docker-down
+just docker-logs
+just docker-ps
+just docker-clean
+just postgres-check-docker
+```
+
+Phase 2.5 should keep the Rust API, Next.js frontend, and Python workspaces running on the host. It
+only containerizes local dependencies first.
+
 Start the Next.js desktop prototype:
 
 ```powershell

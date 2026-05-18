@@ -331,6 +331,206 @@ Exit criteria:
 - Postgres repository can append/replay AgentRunEvent records in sequence order
 - local checks do not require PostgreSQL unless `MY_SIFU_DATABASE_URL` is explicitly set
 
+## Phase 2.5: Local Runtime With Docker
+
+Goal: make local infrastructure reproducible before Memory, RAG, and real model calls depend on
+external services.
+
+This phase is about running local dependencies, not deploying the product. The Rust API, Next.js
+frontend, and Python services can still run from the host during this phase.
+
+Recommended local runtime shape:
+
+```text
+Host
+  ├─ Next.js frontend
+  ├─ Rust API / BFF
+  └─ Python workspaces
+
+Docker Compose
+  ├─ PostgreSQL
+  ├─ New API
+  ├─ Redis
+  └─ MinIO
+```
+
+### Phase 2.5a: PostgreSQL Compose Runtime
+
+Goal: make Phase 2b PostgreSQL persistence runnable with one local command.
+
+Deliverables:
+
+- `docker-compose.yml`
+- `.env.docker.example`
+- `docker/postgres/` directory if initialization scripts are needed
+- `just docker-up`
+- `just docker-down`
+- `just docker-logs`
+- `just postgres-check-docker`
+
+PostgreSQL requirements:
+
+- service name: `postgres`
+- exposed local port: `5432`
+- database: `my_sifu`
+- user: `my_sifu`
+- password: development-only placeholder
+- data volume: named Docker volume, not a repository directory
+- healthcheck: `pg_isready`
+
+Environment contract:
+
+```text
+MY_SIFU_DATABASE_URL=postgres://my_sifu:my_sifu@127.0.0.1:5432/my_sifu
+```
+
+Validation target:
+
+```text
+just docker-up
+just postgres-check-docker
+```
+
+Exit criteria:
+
+- PostgreSQL starts through Docker Compose
+- healthcheck becomes healthy
+- `PostgresLearningRepository::run_migrations()` succeeds
+- AgentRun and AgentRunEvent integration test writes to the Docker database
+- `just docker-down` stops services without deleting named volumes by default
+
+### Phase 2.5b: New API Compose Runtime
+
+Goal: run the New API gateway locally so Rust can later send OpenAI-compatible requests through a
+single gateway.
+
+Deliverables:
+
+- New API service added to `docker-compose.yml`
+- New API environment block documented in `.env.docker.example`
+- persistent New API data volume
+- healthcheck or documented readiness check
+- `just new-api-status` or documented browser/admin URL check
+
+New API requirements:
+
+- service name: `new-api`
+- exposed local port: `3000`
+- Rust gateway URL:
+
+```text
+MY_SIFU_LLM_GATEWAY_PROVIDER=new-api
+MY_SIFU_LLM_GATEWAY_BASE_URL=http://127.0.0.1:3000
+MY_SIFU_LLM_GATEWAY_API_KEY=
+MY_SIFU_DEFAULT_MODEL=gpt-4o-mini
+```
+
+Security rules:
+
+- do not commit real upstream model keys
+- `.env.docker.example` may contain placeholders only
+- frontend must not call New API directly
+- Rust remains the control plane for future model calls
+
+Validation target:
+
+```text
+just docker-up
+just dev-api
+GET /api/model-gateway/status
+```
+
+Exit criteria:
+
+- New API container starts
+- Rust model gateway status points to `http://127.0.0.1:3000`
+- no real model key is committed
+- docs explain where to configure upstream providers manually
+
+### Phase 2.5c: Redis Runtime Placeholder
+
+Goal: reserve the local runtime dependency for future queues, cache, rate limiting, and job lifecycle
+coordination.
+
+Deliverables:
+
+- Redis service added to `docker-compose.yml`
+- Redis URL added to `.env.docker.example`
+- `MY_SIFU_REDIS_URL=redis://127.0.0.1:6379/0`
+- healthcheck using `redis-cli ping`
+
+Exit criteria:
+
+- Redis starts through Docker Compose
+- healthcheck becomes healthy
+- no production behavior depends on Redis yet
+
+### Phase 2.5d: MinIO Runtime Placeholder
+
+Goal: reserve object storage for future uploaded documents, generated exports, and evaluation
+artifacts.
+
+Deliverables:
+
+- MinIO service added to `docker-compose.yml`
+- MinIO console exposed locally
+- development access key and secret in `.env.docker.example`
+- object-store endpoint added:
+
+```text
+MY_SIFU_OBJECT_STORE_ENDPOINT=http://127.0.0.1:9000
+```
+
+Exit criteria:
+
+- MinIO starts through Docker Compose
+- console is reachable locally
+- docs explain that buckets and artifact write paths are implemented later
+
+### Phase 2.5e: Developer Ergonomics And Verification
+
+Goal: make the local runtime easy to operate without remembering raw Docker commands.
+
+Recommended `just` commands:
+
+```text
+just docker-up
+just docker-down
+just docker-logs
+just docker-ps
+just docker-clean
+just postgres-check-docker
+```
+
+`docker-clean` behavior:
+
+- must be documented as destructive
+- should require explicit command invocation
+- should remove named volumes only when intentionally requested
+
+Verification checklist:
+
+- `docker compose config` succeeds
+- `just docker-up` starts all services
+- PostgreSQL healthcheck passes
+- New API service is reachable
+- Redis healthcheck passes
+- MinIO console is reachable
+- `just postgres-check-docker` passes
+- `just docker-down` stops services
+- `just check` still works without Docker
+
+Out of scope:
+
+- production deployment
+- Kubernetes
+- cloud secrets management
+- real upstream model keys
+- real RAG ingestion
+- real Redis job queue
+- real MinIO artifact writes
+- containerizing the Rust API, Python service, or Next.js frontend
+
 ## Phase 3: Memory Service
 
 Goal: implement long-term and task-relevant memory as a separate module.
@@ -1103,6 +1303,7 @@ Use this order unless a product demo requires otherwise:
 1. API contract and Rust BFF skeleton
 1.5. Model Gateway Foundation
 2. Domain model and persistence
+2.5. Local Runtime With Docker
 3. Memory
 4. RAG / Knowledge Retrieval
 5. Planning
