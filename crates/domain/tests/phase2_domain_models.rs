@@ -1,0 +1,56 @@
+use domain::{
+    AgentRun, AgentRunEvent, AgentRunEventKind, AgentRunStatus, KnowledgeSource, LearningProfile,
+    LearningStage, MemoryItem, RetrievalResult, Task, TaskStatus, User,
+};
+
+#[test]
+fn phase2_domain_models_serialize_with_stable_camel_case_fields() {
+    let task = Task::new_fixture();
+    let value = serde_json::to_value(task).unwrap();
+
+    assert_eq!(value["id"], "task_fixture_linear_function_001");
+    assert_eq!(
+        value["learningGoal"],
+        "巩固一次函数图像、解析式与实际应用题"
+    );
+    assert_eq!(value["status"], "active");
+}
+
+#[test]
+fn agent_run_event_carries_replay_metadata() {
+    let run = AgentRun::new_fixture();
+    let event = AgentRunEvent::new(
+        run.id.clone(),
+        1,
+        AgentRunEventKind::GenerationJobCreated,
+        serde_json::json!({
+            "job_id": "job_fixture_linear_function_001"
+        }),
+    );
+
+    assert_eq!(run.status, AgentRunStatus::Completed);
+    assert_eq!(event.sequence, 1);
+    assert_eq!(event.kind, AgentRunEventKind::GenerationJobCreated);
+    assert_eq!(event.payload["job_id"], "job_fixture_linear_function_001");
+}
+
+#[test]
+fn phase2_supporting_entities_exist_for_future_memory_and_rag() {
+    let user = User::fixture();
+    let profile = LearningProfile::fixture_for_user(user.id.clone());
+    let source = KnowledgeSource::fixture();
+    let retrieval = RetrievalResult::fixture(source.id.clone());
+    let memory = MemoryItem::fixture_for_user(user.id.clone());
+
+    assert_eq!(profile.stage, LearningStage::Grade8);
+    assert_eq!(source.source_type, "textbook");
+    assert_eq!(retrieval.trust_score, 0.95);
+    assert_eq!(memory.memory_type, "preference");
+}
+
+#[test]
+fn task_status_serializes_as_lowercase_contract_value() {
+    let value = serde_json::to_value(TaskStatus::Active).unwrap();
+
+    assert_eq!(value, "active");
+}

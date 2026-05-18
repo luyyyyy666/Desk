@@ -1,0 +1,8 @@
+[package]
+name = "tool-runtime"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+domain.workspace = true
