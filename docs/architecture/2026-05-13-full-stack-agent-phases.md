@@ -19,22 +19,28 @@ The initial UI prototype is static. The phases below describe the path from stat
 
 ## Recommended Language Split
 
-Use a Rust + Python backend split.
+Use Python + TypeScript as the main implementation path first. Keep Rust as a later optional hardening or acceleration layer instead of the default language for new Agent features.
 
-Rust should own stable runtime infrastructure:
+TypeScript should own product UI and frontend contracts:
 
-- API gateway / BFF edge for frontend-facing contracts
+- PC web Learning OS interface
+- static and interactive windows
+- user workflows
+- generated API client types from OpenAPI
+- frontend loading, empty, error, and success states
+- Playwright coverage for the main UI loop
+
+Python should own the primary backend and Agent implementation:
+
+- FastAPI API / BFF edge for frontend-facing contracts
 - Agent runtime orchestration
 - state machine and workflow execution
 - tool execution boundary
-- typed domain models
-- persistence adapters
-- audit logs and event records
+- typed domain models with Pydantic
+- persistence adapters and migrations
+- audit logs and AgentRun event records
 - guardrail enforcement points
-- high-concurrency streaming and job lifecycle
-
-Python should own AI and knowledge workflows:
-
+- model gateway adapters for New API and other OpenAI-compatible providers
 - LLM provider adapters
 - prompt and response parsing
 - RAG ingestion and retrieval pipelines
@@ -44,40 +50,43 @@ Python should own AI and knowledge workflows:
 - data cleaning and document processing
 - experimentation notebooks or scripts
 
-Next.js should own product UI:
+Rust should be deferred until there is concrete pressure that justifies it:
 
-- PC web Learning OS interface
-- static and interactive windows
-- user workflows
-- API calls to Rust BFF
-- streaming UI for Agent progress
+- high-concurrency streaming that Python cannot handle cleanly
+- a sandboxed native tool executor
+- performance-sensitive retrieval, parsing, or reranking components
+- a packaged local runtime service where a small native binary is valuable
+- strict event-replay or workflow execution needs that benefit from Rust types
 
-Avoid putting Agent decision logic in the frontend. Avoid making Python the core request router if the product needs strong state, concurrency, and long-running job control.
+Avoid putting Agent decision logic in the frontend. The frontend should never call New API or upstream model providers directly. Model keys, provider routing, memory writes, tool permissions, guardrails, and AgentRun state should stay behind the backend.
+
+Existing Rust Phase 1, Phase 1.5, and Phase 2 code should be treated as a working foundation and reference implementation. Do not delete it only because the language direction changed. Future code should add Python parity behind the same OpenAPI contracts, then decide whether to keep the Rust pieces as compatibility shims, tests, or optional optimized services.
 
 ## Suggested Repository Shape
 
 ```text
 apps/
   web/                         # Next.js 15 frontend
-  api/                         # Rust HTTP API / BFF
-crates/
-  agent-core/                  # Runtime contracts, state machine, planning orchestration
-  domain/                      # Shared Rust domain types
-  tool-runtime/                # Tool registry and execution boundary
-  persistence/                 # Database and event store adapters
+  api/                         # Python FastAPI API / BFF target
 python/
-  ai-services/                 # FastAPI service for LLM/RAG/evaluation
-  rag-pipeline/                # ingestion, chunking, embedding, indexing jobs
+  my_sifu_agent/               # Agent runtime, domain, persistence, memory, tools
+  ai_services/                 # LLM, RAG, evaluation, and worker modules
+  rag_pipeline/                # ingestion, chunking, embedding, indexing jobs
   evals/                       # datasets, rubrics, scoring scripts
 contracts/
   openapi/                     # API schemas
+  skills/                      # skill input/output schemas
   events/                      # event contracts
+crates/                        # existing Rust foundation; optional/deferred
+  model-gateway/               # current New API/OpenAI-compatible reference
+  domain/                      # current Rust domain reference
+  persistence/                 # current Rust persistence reference
 docs/
   architecture/
   superpowers/
 ```
 
-This structure can be simplified at the start, but the ownership boundaries should stay clear.
+This structure can be simplified at the start, but the ownership boundaries should stay clear. The key rule is contract stability: frontend code should depend on OpenAPI and typed client code, not on whether the backend implementation is currently Python or Rust.
 
 ## Phase 0: Repo And Engineering Foundation
 
@@ -86,8 +95,8 @@ Goal: make the repo ready for multi-language development.
 Scope:
 
 - choose package layout
-- add Rust workspace
-- add Python workspace
+- keep the existing Rust workspace as a reference foundation
+- add and prioritize the Python workspace
 - move current Next prototype into `apps/web` or decide to keep `frontend/`
 - add shared formatting, linting, testing commands
 - define local environment conventions under `E:\DevData`
@@ -96,7 +105,7 @@ Scope:
 
 Deliverables:
 
-- `Cargo.toml` workspace
+- `Cargo.toml` workspace for current Rust reference code
 - Python project config, preferably `pyproject.toml`
 - frontend package scripts
 - root `justfile`, `makefile`, or task runner
@@ -104,9 +113,9 @@ Deliverables:
 
 Recommended tools:
 
-- Rust: `cargo`, `clippy`, `rustfmt`, `axum`, `tokio`, `serde`, `sqlx`
-- Python: `uv`, `ruff`, `pytest`, `mypy` or `pyright`, `fastapi`
+- Python: `uv`, `ruff`, `pytest`, `mypy` or `pyright`, `fastapi`, `pydantic`, `sqlalchemy` or `sqlmodel`, `alembic`
 - Frontend: Next.js 15, TypeScript, Tailwind, Playwright
+- Rust reference: `cargo`, `clippy`, `rustfmt`, `axum`, `tokio`, `serde`, `sqlx`
 
 Exit criteria:
 
@@ -122,7 +131,7 @@ Goal: define how the frontend talks to the backend before implementing Agent int
 Scope:
 
 - design REST or RPC endpoints for Learning OS workflows
-- create Rust BFF/API service
+- create Python FastAPI BFF/API service
 - return static or fixture-backed responses matching the current UI
 - define streaming endpoint shape for future Agent progress
 - define OpenAPI contract
@@ -141,17 +150,17 @@ GET  /api/knowledge/search
 GET  /api/reports/current
 ```
 
-Rust ownership:
+Python ownership:
 
 - request validation
 - response contracts
 - job ids
 - frontend-facing errors
-- typed DTOs
+- typed DTOs with Pydantic
 
-Python ownership:
+Existing Rust reference status:
 
-- none yet, except optional fixture generation scripts
+- keep existing Rust fixture API as a reference implementation until Python parity exists
 
 Exit criteria:
 
@@ -168,7 +177,7 @@ Recommended request path:
 
 ```text
 Next.js frontend
-  -> Rust BFF / Agent Runtime
+  -> Python FastAPI BFF / Agent Runtime
     -> Model Gateway adapter
       -> New API
         -> upstream model providers
@@ -176,11 +185,11 @@ Next.js frontend
 
 Scope:
 
-- add a Rust `model-gateway` crate
+- add a Python model gateway module
 - define gateway config from environment variables
 - default to New API-compatible `/v1/chat/completions`
 - build typed OpenAI-compatible chat completion request JSON
-- expose only non-sensitive gateway status through Rust BFF
+- expose only non-sensitive gateway status through the Python BFF
 - keep API keys and provider routing outside the frontend
 
 Environment variables:
@@ -192,7 +201,7 @@ MY_SIFU_LLM_GATEWAY_API_KEY=
 MY_SIFU_DEFAULT_MODEL=gpt-4o-mini
 ```
 
-Rust ownership:
+Python ownership:
 
 - model gateway adapter boundary
 - model config loading
@@ -200,16 +209,15 @@ Rust ownership:
 - frontend-safe status reporting
 - later: model capability registry, retry policy, timeout policy, request audit
 
-Python ownership:
+Existing Rust reference status:
 
-- none in this phase
-- later Python services can request model calls through Rust or receive model outputs from Rust
+- keep the existing `crates/model-gateway` implementation as a reference for request shape and status redaction
 
 Exit criteria:
 
-- `crates/model-gateway` exists
+- Python model gateway module exists
 - tests cover default config, environment override config, and OpenAI-compatible request shape
-- Rust BFF exposes `GET /api/model-gateway/status`
+- Python BFF exposes `GET /api/model-gateway/status`
 - status endpoint never returns raw API keys
 - frontend still does not call New API directly
 
@@ -240,7 +248,7 @@ Recommended storage:
 - object storage for uploaded documents and generated exports
 - append-only event table for Agent run history
 
-Rust ownership:
+Python ownership:
 
 - migrations
 - repository traits
@@ -248,10 +256,10 @@ Rust ownership:
 - typed persistence models
 - event store
 
-Python ownership:
+Existing Rust reference status:
 
-- ingestion output data shapes
-- embedding metadata schemas
+- keep current Phase 2 Rust persistence as a reference and compatibility target until Python persistence reaches parity
+- optional later extraction if a Rust event-store service becomes justified
 
 Exit criteria:
 
@@ -261,11 +269,11 @@ Exit criteria:
 
 ### Phase 2a: Domain Models And In-Memory Persistence
 
-Goal: establish stable Rust domain models and repository contracts before introducing PostgreSQL.
+Goal: establish stable Python domain models and repository contracts before introducing PostgreSQL.
 
 Scope:
 
-- define core Rust domain entities
+- define core Python domain entities
 - define repository traits for Learning OS read models and AgentRun persistence
 - add an in-memory repository for tests and fixture-backed API responses
 - support append/read replay for AgentRun events
@@ -303,7 +311,7 @@ Exit criteria:
 - domain model serialization tests pass
 - in-memory repository tests pass
 - AgentRun events can be appended and replayed in sequence order
-- Rust BFF can read fixture-backed data through the repository boundary
+- Python BFF can read fixture-backed data through the repository boundary
 
 ### Phase 2b: PostgreSQL Persistence
 
@@ -336,16 +344,18 @@ Exit criteria:
 Goal: make local infrastructure reproducible before Memory, RAG, and real model calls depend on
 external services.
 
-This phase is about running local dependencies, not deploying the product. The Rust API, Next.js
-frontend, and Python services can still run from the host during this phase.
+This phase is about running local dependencies, not deploying the product. The Python API, existing
+Rust reference API, Next.js frontend, and Python workers can still run from the host during this
+phase.
 
 Recommended local runtime shape:
 
 ```text
 Host
   ├─ Next.js frontend
-  ├─ Rust API / BFF
-  └─ Python workspaces
+  ├─ Python FastAPI API / BFF
+  ├─ Python workspaces
+  └─ Rust API / BFF reference, optional during the transition
 
 Docker Compose
   ├─ PostgreSQL
@@ -395,13 +405,13 @@ Exit criteria:
 
 - PostgreSQL starts through Docker Compose
 - healthcheck becomes healthy
-- `PostgresLearningRepository::run_migrations()` succeeds
+- Python PostgreSQL repository migrations succeed
 - AgentRun and AgentRunEvent integration test writes to the Docker database
 - `just docker-down` stops services without deleting named volumes by default
 
 ### Phase 2.5b: New API Compose Runtime
 
-Goal: run the New API gateway locally so Rust can later send OpenAI-compatible requests through a
+Goal: run the New API gateway locally so Python can later send OpenAI-compatible requests through a
 single gateway.
 
 Deliverables:
@@ -416,7 +426,7 @@ New API requirements:
 
 - service name: `new-api`
 - exposed local port: `3000`
-- Rust gateway URL:
+- backend gateway URL:
 
 ```text
 MY_SIFU_LLM_GATEWAY_PROVIDER=new-api
@@ -430,7 +440,7 @@ Security rules:
 - do not commit real upstream model keys
 - `.env.docker.example` may contain placeholders only
 - frontend must not call New API directly
-- Rust remains the control plane for future model calls
+- the backend remains the control plane for future model calls
 
 Validation target:
 
@@ -443,7 +453,7 @@ GET /api/model-gateway/status
 Exit criteria:
 
 - New API container starts
-- Rust model gateway status points to `http://127.0.0.1:3000`
+- model gateway status points to `http://127.0.0.1:3000`
 - no real model key is committed
 - docs explain where to configure upstream providers manually
 
@@ -529,7 +539,7 @@ Out of scope:
 - real RAG ingestion
 - real Redis job queue
 - real MinIO artifact writes
-- containerizing the Rust API, Python service, or Next.js frontend
+- containerizing the Python API, Rust reference API, worker services, or Next.js frontend
 
 ## Phase 3: Memory Service
 
@@ -552,7 +562,7 @@ Memory write rules:
 - support inspect/update/delete later
 - do not mix textbook knowledge into user memory
 
-Rust ownership:
+Python ownership:
 
 - memory API
 - memory persistence
@@ -560,7 +570,7 @@ Rust ownership:
 - audit events
 - read/write contracts
 
-Python ownership:
+LLM-assisted memory responsibilities:
 
 - summarization
 - extraction candidates
@@ -571,7 +581,7 @@ Suggested flow:
 ```text
 AgentRun completed
   -> Python proposes memory candidates
-  -> Rust validates and stores approved memory items
+  -> Python validates and stores approved memory items through explicit policy gates
   -> future runs request relevant memory by task context
 ```
 
@@ -605,7 +615,7 @@ Python ownership:
 - source attribution
 - trust scoring
 
-Rust ownership:
+Python backend ownership:
 
 - retrieval request contract
 - source access control
@@ -642,14 +652,14 @@ Planning responsibilities:
 - produce a step plan
 - expose plan to frontend progress UI
 
-Rust ownership:
+Python ownership:
 
 - plan state machine
 - valid transitions
 - plan persistence
 - deterministic orchestration
 
-Python ownership:
+LLM-assisted planning responsibilities:
 
 - LLM planning prompts
 - plan proposal generation
@@ -663,8 +673,8 @@ User Request
   -> Memory Read
   -> RAG Search
   -> Python proposes plan
-  -> Rust validates allowed transitions/tools
-  -> Rust stores plan in AgentRun
+  -> Python validates allowed transitions/tools
+  -> Python stores plan in AgentRun
 ```
 
 Exit criteria:
@@ -688,7 +698,7 @@ Skill design rules:
 - Every skill declares whether it may call LLMs, retrieval, external tools, or export jobs.
 - Every skill declares guardrail requirements.
 - Every skill emits structured events for AgentRun replay.
-- Every skill is callable through Rust Tool Manager, even if the implementation lives in Python.
+- Every skill is callable through the backend Tool Manager, even if parts of the implementation later move to Rust.
 
 Seed skill catalog:
 
@@ -720,8 +730,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: job lifecycle, input validation, persistence, event stream
-- Python: LLM prompt, RAG-grounded generation, structured output parsing
+- Python backend: job lifecycle, input validation, persistence, event stream
+- Python AI module: LLM prompt, RAG-grounded generation, structured output parsing
 
 Required guardrails:
 
@@ -752,8 +762,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: versioning and audit trail
-- Python: rewrite and critique
+- Python backend: versioning and audit trail
+- Python AI module: rewrite and critique
 
 Required guardrails:
 
@@ -782,8 +792,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: request contract and persistence
-- Python: explanation generation
+- Python backend: request contract and persistence
+- Python AI module: explanation generation
 
 Required guardrails:
 
@@ -813,8 +823,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: answer attempt lifecycle
-- Python: grading and rubric scoring
+- Python backend: answer attempt lifecycle
+- Python AI module: grading and rubric scoring
 
 Required guardrails:
 
@@ -845,8 +855,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: mistake persistence and memory write approval boundary
-- Python: misconception classification
+- Python backend: mistake persistence and memory write approval boundary
+- Python AI module: misconception classification
 
 Required guardrails:
 
@@ -875,8 +885,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: recommendation contract and task creation
-- Python: recommendation reasoning
+- Python backend: recommendation contract and task creation
+- Python AI module: recommendation reasoning
 
 Required guardrails:
 
@@ -904,8 +914,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: request authorization, source access, persistence
-- Python: embedding search, reranking, source scoring
+- Python backend: request authorization, source access, persistence
+- Python RAG module: embedding search, reranking, source scoring
 
 Required guardrails:
 
@@ -932,8 +942,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: threshold enforcement and result storage
-- Python: alignment scoring
+- Python backend: threshold enforcement and result storage
+- Python AI module: alignment scoring
 
 Required guardrails:
 
@@ -963,8 +973,8 @@ Outputs:
 
 Implementation owner:
 
-- Rust: required quality gate
-- Python: rubric evaluation and batch scoring
+- Python backend: required quality gate
+- Python eval module: rubric evaluation and batch scoring
 
 Required guardrails:
 
@@ -992,7 +1002,7 @@ Outputs:
 
 Implementation owner:
 
-- Rust: export job lifecycle, artifact storage, permissions
+- Python backend: export job lifecycle, artifact storage, permissions
 - Python or document renderer: document rendering if needed
 
 Required guardrails:
@@ -1040,7 +1050,7 @@ Initial skill-backed tools:
 - `evaluate_question_quality`
 - `export_paper`
 
-Rust ownership:
+Python backend ownership:
 
 - tool registry
 - tool permissions
@@ -1049,7 +1059,7 @@ Rust ownership:
 - structured tool logs
 - sandbox boundary for unsafe tools
 
-Python ownership:
+Python AI module ownership:
 
 - AI-heavy tool implementations
 - scoring and generation internals
@@ -1090,14 +1100,14 @@ State should track:
 - retry count
 - final response status
 
-Rust ownership:
+Python ownership:
 
 - state machine
 - event sourcing or append-only transitions
 - recovery logic
 - idempotency
 
-Python ownership:
+Worker design requirements:
 
 - stateless workers where possible
 - deterministic outputs from explicit inputs
@@ -1122,14 +1132,14 @@ Guardrail categories:
 - toxic or irrelevant content filters
 - tool permission checks
 
-Rust ownership:
+Python backend ownership:
 
 - mandatory enforcement gates
 - policy configuration
 - request blocking
 - audit logs
 
-Python ownership:
+Python AI module ownership:
 
 - content classification
 - educational quality checks
@@ -1163,7 +1173,7 @@ Python ownership:
 - batch eval datasets
 - regression eval scripts
 
-Rust ownership:
+Python backend ownership:
 
 - store evaluation results
 - enforce required quality thresholds
@@ -1189,14 +1199,14 @@ Harness responsibilities:
 - trace viewer
 - prompt/version tracking
 
-Rust ownership:
+Python backend ownership:
 
 - run replay
 - event stream
 - service metrics
 - structured logs
 
-Python ownership:
+Python eval module ownership:
 
 - eval datasets
 - offline scoring
@@ -1233,11 +1243,11 @@ Frontend should avoid:
 
 - duplicating Agent state machine
 - storing source of truth in React state
-- making direct calls to Python AI services
+- making direct calls to Python AI modules or model gateway services
 
 Exit criteria:
 
-- frontend works against Rust BFF
+- frontend works against the backend BFF through OpenAPI contracts
 - loading, empty, error, and success states exist
 - e2e tests cover the main loop
 
@@ -1254,7 +1264,7 @@ Export targets:
 
 Recommended ownership:
 
-- Rust coordinates export jobs and stores artifacts
+- Python coordinates export jobs and stores artifacts
 - Python can render educational content templates if needed
 - a dedicated document renderer can produce PDF/Docx later
 
@@ -1271,12 +1281,13 @@ Goal: make the system deployable without changing architecture.
 Initial deployment shape:
 
 - Next.js web app
-- Rust API service
-- Python AI service
+- Python FastAPI API service
+- Python worker or AI service
 - PostgreSQL
 - vector index
 - object storage
 - background worker
+- optional Rust service only if a later performance or sandboxing phase requires it
 
 Operational needs:
 
@@ -1292,7 +1303,7 @@ Exit criteria:
 
 - local docker compose or equivalent exists
 - staging deploy is reproducible
-- health checks cover web, Rust API, Python AI service, database, and vector store
+- health checks cover web, Python API, Python worker or AI service, database, and vector store
 
 ## Recommended Phase Order
 
@@ -1300,7 +1311,7 @@ Use this order unless a product demo requires otherwise:
 
 ```text
 0. Repo foundation
-1. API contract and Rust BFF skeleton
+1. API contract and Python BFF skeleton
 1.5. Model Gateway Foundation
 2. Domain model and persistence
 2.5. Local Runtime With Docker
@@ -1322,11 +1333,11 @@ Memory, RAG, State, and Tool Manager should not be merged into one generic "Agen
 
 ## Additional Recommendations
 
-1. Start with Rust BFF before Python intelligence.
-   The frontend needs stable contracts and job lifecycle semantics before real AI logic.
+1. Start with Python FastAPI BFF before Python intelligence.
+   The frontend needs stable contracts and job lifecycle semantics before real AI logic, and FastAPI keeps the first backend loop in the same language family as the Agent code.
 
-2. Use Python behind Rust, not beside the frontend.
-   Next.js should talk to Rust. Rust should call Python AI services. This keeps auth, state, tool permissions, and audit in one backend control plane.
+2. Use Python behind TypeScript, not beside the frontend.
+   Next.js should talk to the backend BFF. The backend should call New API, RAG, Memory, and tools. This keeps auth, state, tool permissions, and audit in one backend control plane.
 
 3. Treat every Agent run as an event stream.
    This is the backbone for progress UI, debugging, replay, evaluation, and audit.
@@ -1350,4 +1361,4 @@ Memory, RAG, State, and Tool Manager should not be merged into one generic "Agen
    Every generated question should be able to point back to knowledge sources or clearly mark itself as template-derived.
 
 10. Keep local development one-command.
-   Rust, Python, frontend, database, and worker startup should eventually be scriptable from a root task runner.
+   Python, frontend, database, model gateway, and worker startup should eventually be scriptable from a root task runner. Rust checks remain useful while the existing reference code stays in the repo.

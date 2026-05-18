@@ -11,18 +11,36 @@ Current layout:
 
 ```text
 frontend/              # existing Next.js 15 static Learning OS prototype
-apps/api/              # Rust API/BFF skeleton
-crates/agent-core/     # Rust runtime foundation contracts
-crates/domain/         # shared Rust domain types
-crates/tool-runtime/   # future tool registry boundary
-crates/persistence/    # future database/event-store boundary
-python/ai_services/    # future Python LLM/RAG/evaluation workspace
+apps/api/              # existing Rust API/BFF reference skeleton
+crates/agent-core/     # existing Rust runtime foundation contracts
+crates/domain/         # existing Rust domain reference types
+crates/tool-runtime/   # existing Rust tool registry boundary
+crates/persistence/    # existing Rust database/event-store reference
+python/ai_services/    # Python LLM/RAG/evaluation workspace
 tests/                 # root repository structure checks
 ```
 
 The existing frontend remains in `frontend/` for now to avoid destabilizing the current PC web
 prototype. A later migration to `apps/web/` should be treated as a separate phase because it changes
 paths, scripts, and deployment assumptions.
+
+## Language Direction
+
+The current committed backend foundation is Rust-based because Phase 1, Phase 1.5, and Phase 2 were
+started that way. The forward implementation direction is now Python + TypeScript first:
+
+```text
+TypeScript / Next.js   # PC web UI and generated API client types
+Python / FastAPI       # primary BFF, Agent runtime, Memory, RAG, tools, guardrails, evaluation
+PostgreSQL             # durable relational and AgentRun event state
+New API                # local OpenAI-compatible model gateway behind the backend
+Rust                   # keep existing code as reference; add new Rust only when performance,
+                       # native sandboxing, packaging, or concurrency pressure justifies it
+```
+
+Do not delete the existing Rust code only because the preferred language changed. Future work should
+add Python parity behind the same OpenAPI contracts, then decide whether a Rust crate remains useful
+as a compatibility shim, reference test target, or optional optimized service.
 
 ## Environment
 
@@ -63,7 +81,7 @@ Run frontend checks only:
 just frontend-check
 ```
 
-Start the Rust API skeleton:
+Start the current Rust API reference skeleton:
 
 ```powershell
 just dev-api
@@ -98,13 +116,14 @@ Recommended request path:
 
 ```text
 Next.js UI
-  -> Rust BFF / Agent Runtime
+  -> Python FastAPI BFF / Agent Runtime
     -> New API gateway
       -> upstream model providers
 ```
 
-The frontend should not call New API directly. The Rust backend owns model selection, key handling,
-audit, rate limits, AgentRun state, and future tool permissions.
+The frontend should not call New API directly. The backend owns model selection, key handling,
+audit, rate limits, AgentRun state, and future tool permissions. The current Rust model gateway is a
+working reference; the forward path is a Python model gateway module with the same public contract.
 
 Local environment variables:
 
@@ -127,7 +146,9 @@ non-sensitive status endpoint.
 
 ## In-Memory Persistence
 
-Phase 2a adds Rust domain models and an in-memory repository boundary.
+Phase 2a currently adds Rust domain models and an in-memory repository boundary. The Python-first
+follow-up should add equivalent Pydantic models and repository protocols before moving new Agent
+features forward.
 
 Current behavior:
 
@@ -140,10 +161,19 @@ Rust API route
 This keeps the Phase 1 API contract stable while preparing the codebase for PostgreSQL in Phase 2b.
 No database is required for Phase 2a checks.
 
+Forward Python parity target:
+
+```text
+Python FastAPI route
+  -> LearningRepository protocol
+    -> InMemoryLearningRepository.with_fixture_data()
+```
+
 ## PostgreSQL Persistence
 
-Phase 2b adds PostgreSQL migrations and a `PostgresLearningRepository` for durable AgentRun event
-storage.
+Phase 2b currently adds PostgreSQL migrations and a `PostgresLearningRepository` for durable
+AgentRun event storage. The Python-first follow-up should reuse the same database shape where it is
+still appropriate, while implementing the main runtime repository in Python.
 
 Migration file:
 
@@ -176,11 +206,11 @@ $env:MY_SIFU_DATABASE_URL='postgres://my_sifu:my_sifu@127.0.0.1:5432/my_sifu'
 just postgres-check
 ```
 
-## Planned Docker Runtime
+## Docker Runtime
 
-Phase 2.5 will add a local Docker Compose runtime for development dependencies.
+Phase 2.5 adds a local Docker Compose runtime for development dependencies.
 
-Planned services:
+Services:
 
 ```text
 postgres    # Phase 2b database checks and future durable runtime data
@@ -189,27 +219,32 @@ redis       # future queue/cache/rate-limit dependency
 minio       # future uploads, exports, and artifacts
 ```
 
-Planned files:
+Files:
 
 ```text
 docker-compose.yml
 .env.docker.example
-docker/postgres/
+docker/README.md
 ```
 
-Planned commands:
+Commands:
 
 ```powershell
+just docker-config
 just docker-up
 just docker-down
 just docker-logs
 just docker-ps
 just docker-clean
 just postgres-check-docker
+just new-api-status
 ```
 
-Phase 2.5 should keep the Rust API, Next.js frontend, and Python workspaces running on the host. It
-only containerizes local dependencies first.
+Phase 2.5 should keep the Python API, current Rust reference API, Next.js frontend, and Python
+workspaces running on the host. It only containerizes local dependencies first.
+
+`just docker-clean` is destructive because it removes local named Docker volumes. Use it only when
+local dependency data can be discarded.
 
 Start the Next.js desktop prototype:
 
@@ -219,8 +254,8 @@ just dev-web
 
 ## Phase 0 Exit Criteria Mapping
 
-- Rust workspace exists at the repository root.
-- Python workspace exists at the repository root.
+- Rust reference workspace exists at the repository root.
+- Python workspace exists at the repository root and is the forward implementation target.
 - `frontend/` keeps its existing Next.js scripts.
 - Root `justfile` provides one-command checks.
 - `.env.example` documents local service and cache conventions.

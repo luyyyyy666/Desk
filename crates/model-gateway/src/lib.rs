@@ -115,6 +115,13 @@ pub struct NewApiChatRequestBuilder {
     config: ModelGatewayConfig,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewApiChatHttpRequest {
+    pub url: String,
+    pub authorization: Option<String>,
+    pub body: Value,
+}
+
 impl NewApiChatRequestBuilder {
     pub fn new(config: ModelGatewayConfig) -> Self {
         Self { config }
@@ -131,5 +138,17 @@ impl NewApiChatRequestBuilder {
             "temperature": request.temperature,
             "stream": request.stream
         })
+    }
+
+    pub fn build_http_request(&self, request: ChatCompletionRequest) -> NewApiChatHttpRequest {
+        NewApiChatHttpRequest {
+            url: self.config.chat_completions_url(),
+            authorization: self
+                .config
+                .api_key
+                .as_ref()
+                .map(|api_key| format!("Bearer {api_key}")),
+            body: self.build_json(request),
+        }
     }
 }
