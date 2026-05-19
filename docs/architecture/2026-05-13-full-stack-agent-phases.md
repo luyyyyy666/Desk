@@ -541,55 +541,83 @@ Out of scope:
 - real MinIO artifact writes
 - containerizing the Python API, Rust reference API, worker services, or Next.js frontend
 
-## Phase 3: Memory Service
+## Phase 3: Memory And Personal Knowledge Base
 
-Goal: implement long-term and task-relevant memory as a separate module.
+Detailed design: `docs/architecture/phase-3-memory-and-personal-knowledge-base.md`
 
-Memory types:
+Goal: implement a single-user learning memory foundation built around a public exam-oriented
+knowledge base, a wrong-question evidence store, and a rebuildable personal knowledge base.
 
-- conversation summary
-- user profile
-- preference
-- domain memory
-- task history
-- feedback memory
+Core decisions:
 
-Memory write rules:
+- public knowledge base is the foundation for Chinese middle-school exam knowledge
+- public knowledge base schema and contracts are implemented first, but curated knowledge content
+  stays empty until the memory, wrong-question, daily-practice, and verification design is stable
+- personal knowledge base is the user-specific derived layer built on that foundation
+- public `knowledge_point_id` and `tag_id` values become shared indexes across questions, wrong
+  questions, personal knowledge, reports, RAG results, and daily practice
+- wrong questions are raw evidence, not personal knowledge nodes
+- personal knowledge is rebuildable and versioned
+- the user-facing experience can feel like Obsidian, but the source of truth is structured nodes,
+  edges, evidence, and mastery state
+- tags describe error type, question type, difficulty, behavior pattern, and exam pattern; Phase 3
+  does not promote tags into personal knowledge nodes
 
-- store only useful long-term information
-- distinguish explicit user facts from system inference
-- record source and confidence
-- support inspect/update/delete later
-- do not mix textbook knowledge into user memory
-
-Python ownership:
-
-- memory API
-- memory persistence
-- access rules
-- audit events
-- read/write contracts
-
-LLM-assisted memory responsibilities:
-
-- summarization
-- extraction candidates
-- confidence scoring support
-
-Suggested flow:
+Key entities:
 
 ```text
-AgentRun completed
-  -> Python proposes memory candidates
-  -> Python validates and stores approved memory items through explicit policy gates
-  -> future runs request relevant memory by task context
+public_knowledge_points
+public_tags
+wrong_questions
+wrong_question_knowledge_links
+personal_knowledge_builds
+personal_knowledge_nodes
+personal_knowledge_edges
+personal_knowledge_evidence
+review_schedule_items
+practice_attempts
+practice_attempt_analysis
+generated_questions
+question_verification_reports
 ```
+
+Daily practice rules:
+
+- deterministic scheduler owns review timing and mastery thresholds
+- LLMs analyze answer attempts and propose personal knowledge updates
+- first-version mastery updates use correctness, knowledge weights, and difficulty
+- time spent, hint usage, explanation review, and review interval are recorded first and can be used
+  by later versions
+- mastered knowledge enters `mastered_pending_confirm` before user-confirmed `mastered`
+
+Question generation rules:
+
+- daily practice supports `stable_bank` and `llm_tool_generated` modes
+- the personal knowledge base decides what to practice
+- public question/template retrieval and wrong-question variants provide stable practice material
+- LLM tool-generated questions are allowed in Phase 3 only after structured output and independent
+  verifier approval
+- Verifier Agent has veto power
+- failed verification regenerates once, then moves to `needs_human_review`
+
+Embedding and RAG boundary:
+
+- embedding can support public knowledge chunks, public questions/templates, and wrong questions
+- use PostgreSQL plus `pgvector` first unless retrieval scale requires a separate vector database
+- retrieval should be hybrid: structured filters, graph expansion, vector search, and reranking
+- personal knowledge nodes and edges should store summaries that can be embedded later
 
 Exit criteria:
 
-- memory can be written, read, updated, and deleted
-- memory records contain source, confidence, timestamps, and scope
-- tests prove Memory is separate from RAG and State
+- public knowledge base and personal knowledge base are separate in schema and service boundaries
+- wrong questions are stored as raw evidence, not as personal knowledge nodes
+- personal knowledge can be rebuilt with build versions
+- personal knowledge nodes and edges cite evidence
+- multi-knowledge questions support `content_weight`
+- wrong attempts support `error_weight`
+- daily practice can select targets from personal knowledge state
+- LLM-generated questions require verifier approval before use
+- tests prove Memory, RAG, wrong questions, and State remain separate concepts
 
 ## Phase 4: RAG / Knowledge Retrieval
 
@@ -608,7 +636,7 @@ Python ownership:
 
 - document ingestion
 - chunking
-- embedding
+- embedding API calls through a backend Embedding Gateway
 - indexing
 - retrieval
 - reranking
@@ -618,24 +646,79 @@ Python ownership:
 Python backend ownership:
 
 - retrieval request contract
+- embedding job contract
+- embedding provider config and API key handling
 - source access control
 - retrieval result persistence
 - integration with AgentRun
+
+Recommended embedding request path:
+
+```text
+Next.js frontend
+  -> Python FastAPI BFF
+    -> Embedding Gateway
+      -> New API / OpenAI-compatible embeddings endpoint / other embedding provider
+    -> PostgreSQL + pgvector
+```
+
+Embedding Gateway responsibilities:
+
+- call provider embedding APIs from the backend only
+- support New API or another OpenAI-compatible `/v1/embeddings` endpoint first
+- keep embedding model names, provider routing, and API keys out of the frontend
+- batch texts when generating embeddings for public knowledge chunks, templates, questions, and wrong questions
+- store `embedding_model`, `content_hash`, and source metadata with every vector
+- skip duplicate embedding work when `content_hash` and `embedding_model` already match
+- retry transient provider failures with bounded attempts
+- record failed jobs without blocking the whole knowledge base
 
 Suggested Python service endpoints:
 
 ```text
 POST /rag/ingest
+POST /rag/embedding-jobs
+GET  /rag/embedding-jobs/{job_id}
 POST /rag/search
 POST /rag/rerank
 GET  /rag/sources/{source_id}
 ```
 
+Suggested frontend-facing BFF endpoints:
+
+```text
+POST /api/embeddings/jobs
+GET  /api/embeddings/jobs/{job_id}
+POST /api/knowledge/embedding-search
+```
+
+Suggested internal interfaces:
+
+```text
+EmbeddingGateway.embed_texts(texts, model)
+EmbeddingIndex.upsert(source_type, source_id, vector, metadata)
+EmbeddingSearch.search(query, filters)
+```
+
+First embedding targets:
+
+- public knowledge chunks, after curated public knowledge content exists
+- public question templates and public questions
+- wrong questions and their analysis summaries
+
+Do not require personal knowledge node or edge embeddings in the first Phase 4 implementation.
+Personal knowledge can stay structured-first and add embeddings after the node/edge summaries are
+stable.
+
 Exit criteria:
 
 - can ingest a sample textbook chapter
+- can create an embedding job through the backend without exposing provider keys to the frontend
+- embedding job stores vectors in PostgreSQL + pgvector with source ids and content hashes
+- repeated embedding jobs skip unchanged content
 - can retrieve knowledge for "一次函数"
 - retrieval results include source ids and trust scores
+- embedding search can combine structured filters with vector similarity
 - generation phase can consume retrieval results without direct DB coupling
 
 ## Phase 5: Planning Module
