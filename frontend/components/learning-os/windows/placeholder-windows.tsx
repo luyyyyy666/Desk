@@ -1,6 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { currentTask, knowledgePoints, mockQuestions, reportMetrics } from "@/lib/mock-data";
+import {
+  currentTask,
+  knowledgePoints,
+  mockQuestions,
+  publicKnowledgeStatus,
+  reportMetrics,
+} from "@/lib/mock-data";
 
 export function GeneratorWindow() {
   return (
@@ -117,18 +123,36 @@ export function KnowledgeWindow() {
   return (
     <div className="grid grid-cols-[220px_1fr] gap-4">
       <aside className="rounded-md border-2 border-ink bg-paper-100 p-4 text-sm font-black">
-        <p>第十九章 一次函数</p>
-        <p className="mt-3 pl-3">19.2 一次函数图像</p>
-        <p className="mt-3 pl-3">19.3 课题学习</p>
+        <Badge tone="ink" className="mb-3">公共知识库</Badge>
+        <p className="text-lg">内容暂为空</p>
+        <div className="mt-4 space-y-2 rounded border border-ink bg-paper-50 p-3 text-xs">
+          <p>知识点：{publicKnowledgeStatus.knowledgePoints}</p>
+          <p>标签：{publicKnowledgeStatus.tags}</p>
+          <p>关系边：{publicKnowledgeStatus.edges}</p>
+        </div>
+        <Button className="mt-4 w-full" size="sm" variant="paper">
+          录入公共知识库
+        </Button>
+        <p className="mt-3 text-xs font-bold leading-5 text-ink/60">
+          仅预留 schema / import 入口
+        </p>
       </aside>
-      <section className="grid grid-cols-2 gap-3">
-        {knowledgePoints.map((point) => (
-          <article key={point.name} className="rounded-md border-2 border-ink bg-paper-50 p-4">
-            <Badge tone="blue" className="mb-3">{point.coverage}% 覆盖</Badge>
-            <h3 className="font-black">{point.name}</h3>
-            <p className="mt-2 text-sm font-semibold text-ink/70">{point.source}</p>
-          </article>
-        ))}
+      <section className="space-y-3">
+        <div className="rounded-md border-2 border-ink bg-[#dfe8bd] p-4">
+          <Badge tone="green" className="mb-3">个人知识库派生层</Badge>
+          <p className="text-sm font-semibold leading-6">
+            下方为静态个人学习画像示意。公共知识库内容保持空缺，后续由录入或导入流程填充标准知识点。
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {knowledgePoints.map((point) => (
+            <article key={point.name} className="rounded-md border-2 border-ink bg-paper-50 p-4">
+              <Badge tone="blue" className="mb-3">{point.coverage}% 掌握</Badge>
+              <h3 className="font-black">{point.name}</h3>
+              <p className="mt-2 text-sm font-semibold text-ink/70">{point.source}</p>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   );

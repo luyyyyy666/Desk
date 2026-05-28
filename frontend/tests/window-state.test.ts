@@ -10,6 +10,7 @@ import {
   desktopIcons,
   learningLoop,
   mockQuestions,
+  publicKnowledgeStatus,
 } from "@/lib/mock-data";
 
 describe("Learning OS static state", () => {
@@ -65,5 +66,15 @@ describe("Learning OS static state", () => {
       "师傅建议",
       "回收站",
     ]);
+  });
+
+  it("keeps the public knowledge base empty in the static phase 3 shell", () => {
+    expect(publicKnowledgeStatus).toEqual({
+      isEmpty: true,
+      knowledgePoints: 0,
+      tags: 0,
+      edges: 0,
+      importMode: "schema-only",
+    });
   });
 });

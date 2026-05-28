@@ -212,6 +212,14 @@ export const knowledgePoints = [
   { name: "增减性", coverage: 81, source: "19.2.2 一次函数的图像" },
 ];
 
+export const publicKnowledgeStatus = {
+  isEmpty: true,
+  knowledgePoints: 0,
+  tags: 0,
+  edges: 0,
+  importMode: "schema-only",
+} as const;
+
 export const mistakeGroups = [
   {
     knowledge: "实际问题建模",

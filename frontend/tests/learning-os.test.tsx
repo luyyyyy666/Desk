@@ -45,6 +45,18 @@ describe("LearningDesktop", () => {
     expect(screen.getByText("实际问题建模")).toBeInTheDocument();
   });
 
+  it("shows an empty public knowledge base entry point in the knowledge window", () => {
+    render(<LearningDesktop defaultWindow="knowledge" />);
+
+    expect(screen.getByRole("dialog", { name: "知识库" })).toBeInTheDocument();
+    expect(screen.getByText("公共知识库")).toBeInTheDocument();
+    expect(screen.getByText("内容暂为空")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "录入公共知识库" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("仅预留 schema / import 入口")).toBeInTheDocument();
+  });
+
   it("can close the active floating window", async () => {
     const user = userEvent.setup();
     render(<LearningDesktop defaultWindow="errors" />);
