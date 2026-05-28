@@ -163,6 +163,15 @@ class PublicKnowledgeSeedData:
     def empty(cls) -> PublicKnowledgeSeedData:
         return cls()
 
+    @property
+    def is_empty(self) -> bool:
+        return not (
+            self.knowledge_points
+            or self.tags
+            or self.point_tags
+            or self.edges
+        )
+
 
 @dataclass(frozen=True)
 class PublicKnowledgeImportResult:
@@ -487,6 +496,8 @@ class InMemoryPublicKnowledgeRepository:
     _edges: list[PublicKnowledgePointEdge] = field(default_factory=list)
 
     def import_seed(self, seed: PublicKnowledgeSeedData) -> PublicKnowledgeImportResult:
+        if not seed.is_empty:
+            raise ValueError("phase 3 public knowledge content remains empty")
         for knowledge_point in seed.knowledge_points:
             self._knowledge_points[knowledge_point.id] = knowledge_point
         for tag in seed.tags:

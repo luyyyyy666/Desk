@@ -29,7 +29,10 @@ from my_sifu_agent.memory import (
     PracticeAttempt,
     PracticeAttemptAnalysis,
     PracticeGenerationPlan,
+    PublicKnowledgePoint,
     PublicKnowledgeSeedData,
+    PublicTag,
+    PublicTagType,
     QuestionGenerationService,
     QuestionVerificationReport,
     ReviewScheduleItem,
@@ -52,6 +55,41 @@ def test_public_knowledge_repository_starts_empty_and_accepts_empty_seed_only() 
     assert repository.list_knowledge_points() == []
     assert repository.list_tags() == []
     assert repository.list_edges() == []
+
+
+def test_public_knowledge_repository_rejects_non_empty_seed_in_phase3() -> None:
+    repository = InMemoryPublicKnowledgeRepository()
+    non_empty_seed = PublicKnowledgeSeedData(
+        knowledge_points=(
+            PublicKnowledgePoint(
+                id="kp_placeholder",
+                subject="math",
+                grade_band="middle_school",
+                exam_stage="zhongkao",
+                parent_id=None,
+                name="placeholder",
+                aliases=(),
+                difficulty_band="medium",
+                exam_frequency="medium",
+                description="This should not be imported in Phase 3.",
+            ),
+        ),
+        tags=(
+            PublicTag(
+                id="tag_placeholder",
+                tag_type=PublicTagType.QUESTION_TYPE,
+                name="placeholder",
+                description="This should not be imported in Phase 3.",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="public knowledge content remains empty"):
+        repository.import_seed(non_empty_seed)
+
+    assert repository.snapshot().is_empty is True
+    assert repository.list_knowledge_points() == []
+    assert repository.list_tags() == []
 
 
 def test_wrong_questions_are_raw_evidence_with_weighted_knowledge_and_tags() -> None:
