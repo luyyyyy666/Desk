@@ -1,0 +1,48 @@
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_learning_os_openapi_contract_declares_phase3_memory_paths() -> None:
+    content = (ROOT / "contracts" / "openapi" / "learning-os.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    for path in [
+        "/api/memory/public-knowledge/status:",
+        "/api/memory/public-knowledge/import-empty-seed:",
+        "/api/memory/snapshot/{user_id}:",
+        "/api/memory/wrong-questions:",
+        "/api/memory/personal-knowledge/builds:",
+        "/api/memory/daily-practice/targets:",
+        "/api/memory/practice-attempts/analysis:",
+        "/api/memory/generated-questions:",
+        "/api/memory/generated-questions/{question_id}/verification/start:",
+        "/api/memory/generated-questions/{question_id}/verification-reports:",
+        "/api/memory/generated-questions/{question_id}/approve-for-practice:",
+    ]:
+        assert path in content
+
+
+def test_learning_os_openapi_contract_declares_phase3_memory_schemas() -> None:
+    content = (ROOT / "contracts" / "openapi" / "learning-os.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    for schema in [
+        "Phase3MemorySnapshot:",
+        "PublicKnowledgeStatus:",
+        "PublicKnowledgeImportResponse:",
+        "WrongQuestionCreateRequest:",
+        "PersonalKnowledgeBuildActivateRequest:",
+        "DailyPracticeTargetsResponse:",
+        "PracticeAttemptAnalysisRequest:",
+        "GeneratedQuestionRequest:",
+        "QuestionVerificationReportRequest:",
+    ]:
+        assert schema in content
+
+    assert "curated public knowledge content is intentionally empty" in content
+    assert "teacher" not in content.lower()
+    assert "classroom" not in content.lower()
+    assert "tenant" not in content.lower()

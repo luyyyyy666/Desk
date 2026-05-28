@@ -132,10 +132,200 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ModelGatewayStatus"
+  /api/memory/public-knowledge/status:
+    get:
+      summary: Read Phase 3 public knowledge base status.
+      description: Phase 3 public knowledge schema exists, but curated public knowledge content is intentionally empty.
+      responses:
+        "200":
+          description: Public knowledge base status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicKnowledgeStatus"
+  /api/memory/public-knowledge/import-empty-seed:
+    post:
+      summary: Import the empty Phase 3 public knowledge seed.
+      description: This endpoint reserves the import path without adding curated public knowledge content.
+      responses:
+        "200":
+          description: Empty public knowledge seed imported.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicKnowledgeImportResponse"
+  /api/memory/snapshot/{user_id}:
+    get:
+      summary: Read the Phase 3 memory snapshot for one user.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Memory, wrong-question, personal knowledge, practice, and verifier summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Phase3MemorySnapshot"
+  /api/memory/wrong-questions:
+    post:
+      summary: Record a wrong question as raw evidence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WrongQuestionCreateRequest"
+      responses:
+        "201":
+          description: Wrong question stored as evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WrongQuestionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/personal-knowledge/builds:
+    post:
+      summary: Activate a rebuildable personal knowledge build.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalKnowledgeBuildActivateRequest"
+      responses:
+        "201":
+          description: Personal knowledge build activated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalKnowledgeBuildResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/daily-practice/targets:
+    get:
+      summary: Select due daily-practice targets from personal knowledge state.
+      parameters:
+        - $ref: "#/components/parameters/UserIdQuery"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 3
+      responses:
+        "200":
+          description: Due personal knowledge targets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyPracticeTargetsResponse"
+  /api/memory/practice-attempts/analysis:
+    post:
+      summary: Record practice attempt analysis and weighted error links.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PracticeAttemptAnalysisRequest"
+      responses:
+        "201":
+          description: Practice attempt analysis recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeAttemptAnalysisResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/generated-questions:
+    post:
+      summary: Submit a generated question draft for verification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratedQuestionRequest"
+      responses:
+        "201":
+          description: Generated question draft stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedQuestionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/generated-questions/{question_id}/verification/start:
+    post:
+      summary: Mark generated question verification as running.
+      parameters:
+        - $ref: "#/components/parameters/GeneratedQuestionId"
+      responses:
+        "200":
+          description: Generated question verification started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedQuestionResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/memory/generated-questions/{question_id}/verification-reports:
+    post:
+      summary: Record an independent verifier report.
+      parameters:
+        - $ref: "#/components/parameters/GeneratedQuestionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionVerificationReportRequest"
+      responses:
+        "201":
+          description: Verifier report recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionVerificationReportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/generated-questions/{question_id}/approve-for-practice:
+    post:
+      summary: Approve a verified generated question for practice.
+      parameters:
+        - $ref: "#/components/parameters/GeneratedQuestionId"
+      responses:
+        "200":
+          description: Generated question approved for practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedQuestionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   parameters:
     JobId:
       name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+    UserIdQuery:
+      name: user_id
+      in: query
+      required: true
+      schema:
+        type: string
+    GeneratedQuestionId:
+      name: question_id
       in: path
       required: true
       schema:
@@ -404,3 +594,523 @@ components:
         apiKeyHint:
           type: string
           enum: [configured, missing]
+    PublicKnowledgeStatus:
+      type: object
+      required: [knowledgePoints, tags, edges, isEmpty]
+      properties:
+        knowledgePoints:
+          type: integer
+          example: 0
+        tags:
+          type: integer
+          example: 0
+        edges:
+          type: integer
+          example: 0
+        isEmpty:
+          type: boolean
+          example: true
+    PublicKnowledgeImportResponse:
+      type: object
+      required: [imported, publicKnowledge]
+      properties:
+        imported:
+          type: object
+          required: [knowledgePoints, tags, pointTags, edges]
+          properties:
+            knowledgePoints:
+              type: integer
+            tags:
+              type: integer
+            pointTags:
+              type: integer
+            edges:
+              type: integer
+        publicKnowledge:
+          $ref: "#/components/schemas/PublicKnowledgeStatus"
+    ActivePersonalKnowledgeBuild:
+      type: object
+      required: [buildId, buildVersion, status, publicKbVersion]
+      properties:
+        buildId:
+          type: string
+        buildVersion:
+          type: integer
+        status:
+          type: string
+          enum: [building, active, superseded, failed]
+        publicKbVersion:
+          type: string
+    Phase3MemorySnapshot:
+      type: object
+      required:
+        - userId
+        - publicKnowledge
+        - wrongQuestionCount
+        - activePersonalBuild
+        - personalNodeCount
+        - personalEdgeCount
+        - personalEvidenceCount
+        - dueReviewCount
+        - practiceAttemptCount
+        - practiceAnalysisCount
+        - generatedQuestionCount
+        - approvedGeneratedQuestionCount
+      properties:
+        userId:
+          type: string
+        publicKnowledge:
+          $ref: "#/components/schemas/PublicKnowledgeStatus"
+        wrongQuestionCount:
+          type: integer
+        activePersonalBuild:
+          oneOf:
+            - $ref: "#/components/schemas/ActivePersonalKnowledgeBuild"
+            - type: "null"
+        personalNodeCount:
+          type: integer
+        personalEdgeCount:
+          type: integer
+        personalEvidenceCount:
+          type: integer
+        dueReviewCount:
+          type: integer
+        practiceAttemptCount:
+          type: integer
+        practiceAnalysisCount:
+          type: integer
+        generatedQuestionCount:
+          type: integer
+        approvedGeneratedQuestionCount:
+          type: integer
+    WrongQuestionCreateRequest:
+      type: object
+      required: [id, userId, questionText, correctAnswer, userAnswer, explanation, source, subject, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        questionText:
+          type: string
+        correctAnswer:
+          type: string
+        userAnswer:
+          type: string
+        explanation:
+          type: string
+        source:
+          type: string
+        subject:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        knowledgeLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WrongQuestionKnowledgeLink"
+        tagLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagLink"
+    WrongQuestionKnowledgeLink:
+      type: object
+      required: [knowledgePointId, role, contentWeight, source, confidence]
+      properties:
+        knowledgePointId:
+          type: string
+        role:
+          type: string
+          enum: [primary, secondary, prerequisite, trap]
+        contentWeight:
+          type: number
+        source:
+          type: string
+          enum: [public_kb, llm, manual]
+        confidence:
+          type: number
+    TagLink:
+      type: object
+      required: [tagId, source, confidence]
+      properties:
+        tagId:
+          type: string
+        source:
+          type: string
+          enum: [public_kb, llm, manual]
+        confidence:
+          type: number
+    WrongQuestionResponse:
+      type: object
+      required: [wrongQuestion]
+      properties:
+        wrongQuestion:
+          $ref: "#/components/schemas/WrongQuestionCreateRequest"
+    PersonalKnowledgeBuildActivateRequest:
+      type: object
+      required: [build, nodes, edges, evidence]
+      properties:
+        build:
+          $ref: "#/components/schemas/PersonalKnowledgeBuild"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonalKnowledgeNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonalKnowledgeEdge"
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonalKnowledgeEvidence"
+    PersonalKnowledgeBuild:
+      type: object
+      required: [id, userId, buildVersion, model, promptVersion, publicKbVersion, status, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        buildVersion:
+          type: integer
+        model:
+          type: string
+        promptVersion:
+          type: string
+        publicKbVersion:
+          type: string
+        status:
+          type: string
+          enum: [building, active, superseded, failed]
+        createdAt:
+          type: string
+          format: date-time
+    PersonalKnowledgeNode:
+      type: object
+      required:
+        - id
+        - buildId
+        - userId
+        - knowledgePointId
+        - masteryState
+        - masteryScore
+        - weaknessScore
+        - confidence
+        - evidenceCount
+        - summary
+        - summaryForEmbedding
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        buildId:
+          type: string
+        userId:
+          type: string
+        knowledgePointId:
+          type: string
+        masteryState:
+          type: string
+          enum: [weak, learning, reviewing, mastered_pending_confirm, mastered]
+        masteryScore:
+          type: number
+        weaknessScore:
+          type: number
+        confidence:
+          type: number
+        evidenceCount:
+          type: integer
+        summary:
+          type: string
+        summaryForEmbedding:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PersonalKnowledgeEdge:
+      type: object
+      required:
+        - id
+        - buildId
+        - userId
+        - sourceKnowledgePointId
+        - targetKnowledgePointId
+        - relationType
+        - weight
+        - confidence
+        - evidenceCount
+        - summary
+        - summaryForEmbedding
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        buildId:
+          type: string
+        userId:
+          type: string
+        sourceKnowledgePointId:
+          type: string
+        targetKnowledgePointId:
+          type: string
+        relationType:
+          type: string
+          enum: [co_failed, co_practiced, confused_with, prerequisite_gap, improves_with]
+        weight:
+          type: number
+        confidence:
+          type: number
+        evidenceCount:
+          type: integer
+        summary:
+          type: string
+        summaryForEmbedding:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PersonalKnowledgeEvidence:
+      type: object
+      required: [id, buildId, userId, targetType, targetId, evidenceType, evidenceId, analysisSummary, createdAt]
+      properties:
+        id:
+          type: string
+        buildId:
+          type: string
+        userId:
+          type: string
+        targetType:
+          type: string
+          enum: [node, edge]
+        targetId:
+          type: string
+        evidenceType:
+          type: string
+          enum: [wrong_question, practice_attempt, explicit_feedback, manual_confirmation]
+        evidenceId:
+          type: string
+        analysisSummary:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    PersonalKnowledgeBuildResponse:
+      type: object
+      required: [build]
+      properties:
+        build:
+          $ref: "#/components/schemas/PersonalKnowledgeBuild"
+    DailyPracticeTargetsResponse:
+      type: object
+      required: [targets]
+      properties:
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonalKnowledgeNode"
+    PracticeAttemptAnalysisRequest:
+      type: object
+      required: [attempt, analysis, errorLinks]
+      properties:
+        attempt:
+          $ref: "#/components/schemas/PracticeAttempt"
+        analysis:
+          $ref: "#/components/schemas/PracticeAttemptAnalysis"
+        errorLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttemptErrorLink"
+    PracticeAttempt:
+      type: object
+      required: [id, userId, questionId, userAnswer, isCorrect, difficulty, hintUsed, reviewedExplanation, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        questionId:
+          type: string
+        userAnswer:
+          type: string
+        isCorrect:
+          type: boolean
+        difficulty:
+          type: string
+        timeSpentSeconds:
+          oneOf:
+            - type: integer
+            - type: "null"
+        hintUsed:
+          type: boolean
+        reviewedExplanation:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    PracticeAttemptAnalysis:
+      type: object
+      required: [id, attemptId, model, promptVersion, analysisSummary, masteryDelta, weaknessDelta, confidence, createdAt]
+      properties:
+        id:
+          type: string
+        attemptId:
+          type: string
+        model:
+          type: string
+        promptVersion:
+          type: string
+        analysisSummary:
+          type: string
+        masteryDelta:
+          type: number
+        weaknessDelta:
+          type: number
+        confidence:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+    AttemptErrorLink:
+      type: object
+      required: [knowledgePointId, errorWeight, tagId, evidenceSummary, confidence]
+      properties:
+        knowledgePointId:
+          type: string
+        errorWeight:
+          type: number
+        tagId:
+          type: string
+        evidenceSummary:
+          type: string
+        confidence:
+          type: number
+    PracticeAttemptAnalysisResponse:
+      type: object
+      required: [attempt, analysis, errorLinks]
+      properties:
+        attempt:
+          $ref: "#/components/schemas/PracticeAttempt"
+        analysis:
+          $ref: "#/components/schemas/PracticeAttemptAnalysis"
+        errorLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttemptErrorLink"
+    GeneratedQuestionRequest:
+      type: object
+      required:
+        - id
+        - userId
+        - generationRequestId
+        - generationAttempt
+        - mode
+        - status
+        - stem
+        - answer
+        - explanation
+        - difficulty
+        - questionType
+        - model
+        - promptVersion
+        - publicKbVersion
+        - personalKnowledgeBuildId
+        - createdAt
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        generationRequestId:
+          type: string
+        generationAttempt:
+          type: integer
+        mode:
+          type: string
+          enum: [stable_bank, llm_tool_generated]
+        status:
+          type: string
+          enum:
+            - draft_generated
+            - verification_running
+            - verification_passed
+            - approved_for_practice
+            - used_in_daily_practice
+            - verification_failed
+            - regenerated_once
+            - needs_human_review
+        stem:
+          type: string
+        answer:
+          type: string
+        explanation:
+          type: string
+        difficulty:
+          type: string
+        questionType:
+          type: string
+        model:
+          type: string
+        promptVersion:
+          type: string
+        publicKbVersion:
+          type: string
+        personalKnowledgeBuildId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    GeneratedQuestionResponse:
+      type: object
+      required: [question]
+      properties:
+        question:
+          $ref: "#/components/schemas/GeneratedQuestionRequest"
+    QuestionVerificationReportRequest:
+      type: object
+      required: [id, questionId, verifierAgentId, verdict, verifierAnswer, issueSummary, failedReasonType, confidence, createdAt]
+      properties:
+        id:
+          type: string
+        questionId:
+          type: string
+        verifierAgentId:
+          type: string
+        verdict:
+          type: string
+          enum: [passed, failed, needs_review]
+        verifierAnswer:
+          type: string
+        issueSummary:
+          type: string
+        failedReasonType:
+          oneOf:
+            - type: string
+              enum:
+                - no_valid_answer
+                - answer_mismatch
+                - ambiguous_condition
+                - explanation_error
+                - knowledge_tag_mismatch
+                - difficulty_mismatch
+            - type: "null"
+        confidence:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+    QuestionVerificationReportResponse:
+      type: object
+      required: [report]
+      properties:
+        report:
+          $ref: "#/components/schemas/QuestionVerificationReportRequest"
