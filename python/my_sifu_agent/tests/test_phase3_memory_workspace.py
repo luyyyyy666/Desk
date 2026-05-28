@@ -406,7 +406,7 @@ def test_workspace_daily_practice_moves_mastery_to_pending_until_user_confirms()
             updated_at=now,
         )
     )
-    workspace.submit_generated_question(
+    question = workspace.submit_generated_question(
         GeneratedQuestion(
             id="question_due",
             user_id="user_001",
@@ -435,6 +435,7 @@ def test_workspace_daily_practice_moves_mastery_to_pending_until_user_confirms()
             created_at=now,
         )
     )
+    workspace.mark_generated_question_used_in_daily_practice(question.id)
 
     workspace.record_practice_attempt_analysis(
         PracticeAttempt(
@@ -672,3 +673,116 @@ def test_workspace_marks_approved_generated_question_used_in_daily_practice() ->
     used = workspace.mark_generated_question_used_in_daily_practice(question.id)
 
     assert used.status == GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE
+
+
+def test_workspace_blocks_practice_analysis_from_unverified_generated_question() -> None:
+    now = datetime(2026, 5, 27, 11, 0, tzinfo=UTC)
+    workspace = Phase3MemoryWorkspace.empty()
+    workspace.activate_personal_knowledge_build(
+        PersonalKnowledgeBuild(
+            id="pkb_001",
+            user_id="user_001",
+            build_version=1,
+            model="manual-test",
+            prompt_version="phase3-test",
+            public_kb_version="empty-v0",
+            status=PersonalKnowledgeBuildStatus.BUILDING,
+            created_at=now,
+        ),
+        nodes=[
+            PersonalKnowledgeNode(
+                id="node_due",
+                build_id="pkb_001",
+                user_id="user_001",
+                knowledge_point_id="kp_due",
+                mastery_state=MasteryState.REVIEWING,
+                mastery_score=0.5,
+                weakness_score=0.5,
+                confidence=0.8,
+                evidence_count=1,
+                summary="Review target.",
+                summary_for_embedding="review target",
+                created_at=now,
+                updated_at=now,
+            )
+        ],
+        edges=[],
+        evidence=[
+            PersonalKnowledgeEvidence(
+                id="ev_due",
+                build_id="pkb_001",
+                user_id="user_001",
+                target_type="node",
+                target_id="node_due",
+                evidence_type=EvidenceType.WRONG_QUESTION,
+                evidence_id="wq_001",
+                analysis_summary="Prior evidence.",
+                created_at=now,
+            )
+        ],
+    )
+    workspace.submit_generated_question(
+        GeneratedQuestion(
+            id="gq_unverified",
+            user_id="user_001",
+            generation_request_id="request_001",
+            generation_attempt=1,
+            mode=GeneratedQuestionMode.LLM_TOOL_GENERATED,
+            status=GeneratedQuestionStatus.DRAFT_GENERATED,
+            stem="Unverified generated question.",
+            answer="A",
+            explanation="Unchecked explanation.",
+            knowledge_point_links=(
+                GeneratedQuestionKnowledgeLink(
+                    knowledge_point_id="kp_due",
+                    content_weight=1.0,
+                    role=KnowledgeLinkRole.PRIMARY,
+                ),
+            ),
+            expected_error_traps=(),
+            grading_rubric="",
+            difficulty="medium",
+            question_type="open_response",
+            model="generator-model",
+            prompt_version="phase3-test",
+            public_kb_version="empty-v0",
+            personal_knowledge_build_id="pkb_001",
+            created_at=now,
+        )
+    )
+
+    with pytest.raises(ValueError, match="approved generated question"):
+        workspace.record_practice_attempt_analysis(
+            PracticeAttempt(
+                id="attempt_unverified",
+                user_id="user_001",
+                question_id="gq_unverified",
+                user_answer="A",
+                is_correct=True,
+                difficulty="medium",
+                time_spent_seconds=60,
+                hint_used=False,
+                reviewed_explanation=False,
+                created_at=now,
+            ),
+            PracticeAttemptAnalysis(
+                id="analysis_unverified",
+                attempt_id="attempt_unverified",
+                model="manual-test",
+                prompt_version="phase3-test",
+                analysis_summary="Should not update mastery from unverified generated content.",
+                mastery_delta=0.2,
+                weakness_delta=-0.2,
+                confidence=0.9,
+                created_at=now,
+            ),
+            error_links=[],
+        )
+
+    node = workspace.get_active_personal_knowledge_node("user_001", "kp_due")
+    snapshot = workspace.snapshot("user_001", now=now)
+
+    assert node.mastery_score == 0.5
+    assert node.weakness_score == 0.5
+    assert snapshot.practice_attempt_count == 0
+    assert snapshot.practice_analysis_count == 0

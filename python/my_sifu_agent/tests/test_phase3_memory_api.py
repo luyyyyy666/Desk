@@ -339,6 +339,7 @@ def test_memory_api_exposes_mastery_pending_confirmation_and_user_confirmation()
             "createdAt": now.isoformat(),
         }
     )
+    api.mark_generated_question_used_in_daily_practice("question_due")
 
     api.record_practice_attempt_analysis(
         {
@@ -441,3 +442,72 @@ def test_memory_api_enforces_verifier_gate_for_generated_questions() -> None:
     used = api.mark_generated_question_used_in_daily_practice("gq_001")
 
     assert used["question"]["status"] == GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE.value
+
+
+def test_memory_api_rejects_practice_analysis_from_unverified_generated_question() -> None:
+    now = datetime(2026, 5, 28, 12, 30, tzinfo=UTC)
+    api = Phase3MemoryApi.empty()
+    api.submit_generated_question(
+        {
+            "id": "gq_unverified",
+            "userId": "user_001",
+            "generationRequestId": "request_001",
+            "generationAttempt": 1,
+            "mode": GeneratedQuestionMode.LLM_TOOL_GENERATED.value,
+            "status": GeneratedQuestionStatus.DRAFT_GENERATED.value,
+            "stem": "Generated question.",
+            "answer": "A",
+            "explanation": "Unchecked explanation.",
+            "knowledgePointLinks": [
+                {
+                    "knowledgePointId": "kp_due",
+                    "contentWeight": 1.0,
+                    "role": "primary",
+                }
+            ],
+            "expectedErrorTraps": [],
+            "gradingRubric": "",
+            "difficulty": "medium",
+            "questionType": "open_response",
+            "model": "generator-model",
+            "promptVersion": "phase3-test",
+            "publicKbVersion": "empty-v0",
+            "personalKnowledgeBuildId": "pkb_001",
+            "createdAt": now.isoformat(),
+        }
+    )
+
+    with pytest.raises(ValueError, match="approved generated question"):
+        api.record_practice_attempt_analysis(
+            {
+                "attempt": {
+                    "id": "attempt_unverified",
+                    "userId": "user_001",
+                    "questionId": "gq_unverified",
+                    "userAnswer": "A",
+                    "isCorrect": True,
+                    "difficulty": "medium",
+                    "timeSpentSeconds": 60,
+                    "hintUsed": False,
+                    "reviewedExplanation": False,
+                    "createdAt": now.isoformat(),
+                },
+                "analysis": {
+                    "id": "analysis_unverified",
+                    "attemptId": "attempt_unverified",
+                    "model": "manual-test",
+                    "promptVersion": "phase3-test",
+                    "analysisSummary": "Should not update memory.",
+                    "masteryDelta": 0.2,
+                    "weaknessDelta": -0.2,
+                    "confidence": 0.9,
+                    "createdAt": now.isoformat(),
+                },
+                "errorLinks": [],
+            }
+        )
+
+    snapshot = api.get_memory_snapshot("user_001", now=now)
+
+    assert snapshot["practiceAttemptCount"] == 0
+    assert snapshot["practiceAnalysisCount"] == 0

@@ -1028,6 +1028,7 @@ class Phase3MemoryWorkspace:
         *,
         error_links: list[dict[str, Any]] | list[AttemptErrorLink] | None = None,
     ) -> PracticeAttemptAnalysis:
+        self._validate_practice_attempt_question_can_update_memory(attempt)
         self.practice_repository.add_attempt(attempt)
         stored_analysis = self.practice_repository.add_analysis(
             analysis,
@@ -1120,6 +1121,20 @@ class Phase3MemoryWorkspace:
 
     def _question_generation_service(self) -> QuestionGenerationService:
         return QuestionGenerationService(self.generated_question_repository)
+
+    def _validate_practice_attempt_question_can_update_memory(
+        self,
+        attempt: PracticeAttempt,
+    ) -> None:
+        try:
+            question = self.generated_question_repository.get_question(attempt.question_id)
+        except KeyError:
+            return
+        if question.status != GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE:
+            raise ValueError(
+                "practice analysis from a generated question requires an approved generated "
+                "question used in daily practice"
+            )
 
     def _active_build_or_none(self, user_id: str) -> PersonalKnowledgeBuild | None:
         try:
