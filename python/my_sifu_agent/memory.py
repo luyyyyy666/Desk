@@ -160,6 +160,17 @@ class PublicKnowledgeImportResult:
 
 
 @dataclass(frozen=True)
+class PublicKnowledgeSnapshot:
+    knowledge_points: int
+    tags: int
+    edges: int
+
+    @property
+    def is_empty(self) -> bool:
+        return self.knowledge_points == 0 and self.tags == 0 and self.edges == 0
+
+
+@dataclass(frozen=True)
 class WrongQuestion:
     id: str
     user_id: str
@@ -380,6 +391,30 @@ class HybridRetrievalRequest:
         return tuple(steps)
 
 
+@dataclass(frozen=True)
+class ActivePersonalKnowledgeBuildSnapshot:
+    build_id: str
+    build_version: int
+    status: PersonalKnowledgeBuildStatus
+    public_kb_version: str
+
+
+@dataclass(frozen=True)
+class Phase3MemorySnapshot:
+    user_id: str
+    public_knowledge: PublicKnowledgeSnapshot
+    wrong_question_count: int
+    active_personal_build: ActivePersonalKnowledgeBuildSnapshot | None
+    personal_node_count: int
+    personal_edge_count: int
+    personal_evidence_count: int
+    due_review_count: int
+    practice_attempt_count: int
+    practice_analysis_count: int
+    generated_question_count: int
+    approved_generated_question_count: int
+
+
 @dataclass
 class InMemoryPublicKnowledgeRepository:
     _knowledge_points: dict[str, PublicKnowledgePoint] = field(default_factory=dict)
@@ -410,6 +445,13 @@ class InMemoryPublicKnowledgeRepository:
 
     def list_edges(self) -> list[PublicKnowledgePointEdge]:
         return list(self._edges)
+
+    def snapshot(self) -> PublicKnowledgeSnapshot:
+        return PublicKnowledgeSnapshot(
+            knowledge_points=len(self._knowledge_points),
+            tags=len(self._tags),
+            edges=len(self._edges),
+        )
 
 
 @dataclass
@@ -520,6 +562,13 @@ class InMemoryPersonalKnowledgeRepository:
             if evidence.target_id == target_id
         ]
 
+    def list_evidence(self, user_id: str, build_id: str) -> list[PersonalKnowledgeEvidence]:
+        return [
+            evidence
+            for evidence in self._evidence.values()
+            if evidence.user_id == user_id and evidence.build_id == build_id
+        ]
+
 
 @dataclass
 class InMemoryReviewScheduleRepository:
@@ -581,6 +630,9 @@ class InMemoryPracticeRepository:
     def list_error_links(self, attempt_id: str) -> list[AttemptErrorLink]:
         return list(self._error_links_by_attempt.get(attempt_id, []))
 
+    def list_analyses(self) -> list[PracticeAttemptAnalysis]:
+        return list(self._analysis_by_attempt.values())
+
 
 @dataclass
 class DailyPracticeService:
@@ -635,6 +687,13 @@ class InMemoryGeneratedQuestionRepository:
 
     def list_reports(self, question_id: str) -> list[QuestionVerificationReport]:
         return list(self._reports.get(question_id, []))
+
+    def list_questions(self, user_id: str) -> list[GeneratedQuestion]:
+        return [
+            question
+            for question in self._questions.values()
+            if question.user_id == user_id
+        ]
 
 
 @dataclass
@@ -691,3 +750,197 @@ class QuestionGenerationService:
             status=GeneratedQuestionStatus.DRAFT_GENERATED,
         )
         return self.repository.add_question(regenerated)
+
+
+@dataclass
+class Phase3MemoryWorkspace:
+    public_knowledge_repository: InMemoryPublicKnowledgeRepository
+    wrong_question_repository: InMemoryWrongQuestionRepository
+    personal_knowledge_repository: InMemoryPersonalKnowledgeRepository
+    review_schedule_repository: InMemoryReviewScheduleRepository
+    practice_repository: InMemoryPracticeRepository
+    generated_question_repository: InMemoryGeneratedQuestionRepository
+
+    @classmethod
+    def empty(cls) -> Phase3MemoryWorkspace:
+        return cls(
+            public_knowledge_repository=InMemoryPublicKnowledgeRepository(),
+            wrong_question_repository=InMemoryWrongQuestionRepository(),
+            personal_knowledge_repository=InMemoryPersonalKnowledgeRepository(),
+            review_schedule_repository=InMemoryReviewScheduleRepository(),
+            practice_repository=InMemoryPracticeRepository(),
+            generated_question_repository=InMemoryGeneratedQuestionRepository(),
+        )
+
+    def bootstrap_public_knowledge(
+        self,
+        seed: PublicKnowledgeSeedData,
+    ) -> PublicKnowledgeImportResult:
+        return self.public_knowledge_repository.import_seed(seed)
+
+    def record_wrong_question(
+        self,
+        wrong_question: WrongQuestion,
+        *,
+        knowledge_links: list[WrongQuestionKnowledgeLink] | None = None,
+        tag_links: list[TagLink] | None = None,
+    ) -> WrongQuestion:
+        return self.wrong_question_repository.add_wrong_question(
+            wrong_question,
+            knowledge_links=knowledge_links,
+            tag_links=tag_links,
+        )
+
+    def activate_personal_knowledge_build(
+        self,
+        build: PersonalKnowledgeBuild,
+        *,
+        nodes: list[PersonalKnowledgeNode],
+        edges: list[PersonalKnowledgeEdge],
+        evidence: list[PersonalKnowledgeEvidence],
+    ) -> PersonalKnowledgeBuild:
+        self._validate_personal_knowledge_evidence(
+            nodes=nodes,
+            edges=edges,
+            evidence=evidence,
+        )
+        self.personal_knowledge_repository.create_build(build)
+        for node in nodes:
+            self.personal_knowledge_repository.add_node(node)
+        for edge in edges:
+            self.personal_knowledge_repository.add_edge(edge)
+        for evidence_item in evidence:
+            self.personal_knowledge_repository.add_evidence(evidence_item)
+        return self.personal_knowledge_repository.activate_build(build.id)
+
+    def schedule_review(self, item: ReviewScheduleItem) -> ReviewScheduleItem:
+        return self.review_schedule_repository.add_item(item)
+
+    def select_daily_practice_targets(
+        self,
+        user_id: str,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> list[PersonalKnowledgeNode]:
+        service = DailyPracticeService(
+            personal_repository=self.personal_knowledge_repository,
+            schedule_repository=self.review_schedule_repository,
+            practice_repository=self.practice_repository,
+        )
+        return service.select_due_targets(user_id, now=now, limit=limit)
+
+    def record_practice_attempt_analysis(
+        self,
+        attempt: PracticeAttempt,
+        analysis: PracticeAttemptAnalysis,
+        *,
+        error_links: list[dict[str, Any]] | list[AttemptErrorLink] | None = None,
+    ) -> PracticeAttemptAnalysis:
+        self.practice_repository.add_attempt(attempt)
+        return self.practice_repository.add_analysis(analysis, error_links=error_links)
+
+    def submit_generated_question(self, question: GeneratedQuestion) -> GeneratedQuestion:
+        return self.generated_question_repository.add_question(question)
+
+    def start_question_verification(self, question_id: str) -> GeneratedQuestion:
+        return self._question_generation_service().start_verification(question_id)
+
+    def record_question_verification(
+        self,
+        report: QuestionVerificationReport,
+    ) -> QuestionVerificationReport:
+        return self._question_generation_service().record_verification_report(report)
+
+    def approve_generated_question_for_practice(self, question_id: str) -> GeneratedQuestion:
+        return self._question_generation_service().approve_for_practice(question_id)
+
+    def start_regenerated_question_attempt(self, question_id: str) -> GeneratedQuestion:
+        return self._question_generation_service().start_regenerated_attempt(question_id)
+
+    def get_generated_question(self, question_id: str) -> GeneratedQuestion:
+        return self.generated_question_repository.get_question(question_id)
+
+    def snapshot(self, user_id: str, *, now: datetime) -> Phase3MemorySnapshot:
+        active_build = self._active_build_or_none(user_id)
+        if active_build is None:
+            personal_nodes: list[PersonalKnowledgeNode] = []
+            personal_edges: list[PersonalKnowledgeEdge] = []
+            personal_evidence: list[PersonalKnowledgeEvidence] = []
+            active_build_snapshot = None
+        else:
+            personal_nodes = self.personal_knowledge_repository.list_nodes(user_id, active_build.id)
+            personal_edges = self.personal_knowledge_repository.list_edges(user_id, active_build.id)
+            personal_evidence = self.personal_knowledge_repository.list_evidence(
+                user_id,
+                active_build.id,
+            )
+            active_build_snapshot = ActivePersonalKnowledgeBuildSnapshot(
+                build_id=active_build.id,
+                build_version=active_build.build_version,
+                status=active_build.status,
+                public_kb_version=active_build.public_kb_version,
+            )
+
+        attempts = self.practice_repository.list_attempts(user_id)
+        attempt_ids = {attempt.id for attempt in attempts}
+        analyses = [
+            analysis
+            for analysis in self.practice_repository.list_analyses()
+            if analysis.attempt_id in attempt_ids
+        ]
+        generated_questions = self.generated_question_repository.list_questions(user_id)
+
+        return Phase3MemorySnapshot(
+            user_id=user_id,
+            public_knowledge=self.public_knowledge_repository.snapshot(),
+            wrong_question_count=len(self.wrong_question_repository.list_wrong_questions(user_id)),
+            active_personal_build=active_build_snapshot,
+            personal_node_count=len(personal_nodes),
+            personal_edge_count=len(personal_edges),
+            personal_evidence_count=len(personal_evidence),
+            due_review_count=len(
+                self.review_schedule_repository.list_due_items(user_id, now=now)
+            ),
+            practice_attempt_count=len(attempts),
+            practice_analysis_count=len(analyses),
+            generated_question_count=len(generated_questions),
+            approved_generated_question_count=len(
+                [
+                    question
+                    for question in generated_questions
+                    if question.status == GeneratedQuestionStatus.APPROVED_FOR_PRACTICE
+                ]
+            ),
+        )
+
+    def _question_generation_service(self) -> QuestionGenerationService:
+        return QuestionGenerationService(self.generated_question_repository)
+
+    def _active_build_or_none(self, user_id: str) -> PersonalKnowledgeBuild | None:
+        try:
+            return self.personal_knowledge_repository.get_active_build(user_id)
+        except LookupError:
+            return None
+
+    def _validate_personal_knowledge_evidence(
+        self,
+        *,
+        nodes: list[PersonalKnowledgeNode],
+        edges: list[PersonalKnowledgeEdge],
+        evidence: list[PersonalKnowledgeEvidence],
+    ) -> None:
+        cited_targets = {(item.target_type, item.target_id) for item in evidence}
+        missing_node_ids = [
+            node.id
+            for node in nodes
+            if node.evidence_count > 0 and ("node", node.id) not in cited_targets
+        ]
+        missing_edge_ids = [
+            edge.id
+            for edge in edges
+            if edge.evidence_count > 0 and ("edge", edge.id) not in cited_targets
+        ]
+        if missing_node_ids or missing_edge_ids:
+            missing = [*missing_node_ids, *missing_edge_ids]
+            raise ValueError(f"personal knowledge targets must cite evidence: {missing}")
