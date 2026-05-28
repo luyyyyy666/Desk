@@ -13,6 +13,9 @@ def test_learning_os_openapi_contract_declares_phase3_memory_paths() -> None:
         "/api/memory/public-knowledge/import-empty-seed:",
         "/api/memory/snapshot/{user_id}:",
         "/api/memory/wrong-questions:",
+        "/api/memory/user-knowledge-notes:",
+        "/api/memory/user-knowledge-feedback:",
+        "/api/memory/user-knowledge/{knowledge_point_id}:",
         "/api/memory/personal-knowledge/builds:",
         "/api/memory/daily-practice/targets:",
         "/api/memory/practice-attempts/analysis:",
@@ -34,15 +37,22 @@ def test_learning_os_openapi_contract_declares_phase3_memory_schemas() -> None:
         "PublicKnowledgeStatus:",
         "PublicKnowledgeImportResponse:",
         "WrongQuestionCreateRequest:",
+        "UserKnowledgeNoteRequest:",
+        "UserKnowledgeFeedbackRequest:",
+        "UserKnowledgeNotesAndFeedbackResponse:",
         "PersonalKnowledgeBuildActivateRequest:",
         "DailyPracticeTargetsResponse:",
         "PracticeAttemptAnalysisRequest:",
         "GeneratedQuestionRequest:",
+        "GeneratedQuestionKnowledgeLink:",
         "QuestionVerificationReportRequest:",
     ]:
         assert schema in content
 
     assert "curated public knowledge content is intentionally empty" in content
+    assert "knowledgePointLinks" in content
+    assert "expectedErrorTraps" in content
+    assert "gradingRubric" in content
     assert "teacher" not in content.lower()
     assert "classroom" not in content.lower()
     assert "tenant" not in content.lower()

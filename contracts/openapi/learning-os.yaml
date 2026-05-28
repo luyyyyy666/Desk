@@ -184,6 +184,61 @@ paths:
                 $ref: "#/components/schemas/WrongQuestionResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/memory/user-knowledge-notes:
+    post:
+      summary: Upsert an editable user note for one knowledge point.
+      description: User notes stay separate from calculated mastery state and raw wrong-question evidence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserKnowledgeNoteRequest"
+      responses:
+        "200":
+          description: User knowledge note saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserKnowledgeNoteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/user-knowledge-feedback:
+    post:
+      summary: Record explicit user feedback for one knowledge point.
+      description: Feedback can confirm or deny weakness, pause or resume practice, or mark mastery without editing calculated logs directly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserKnowledgeFeedbackRequest"
+      responses:
+        "201":
+          description: User knowledge feedback recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserKnowledgeFeedbackResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/memory/user-knowledge/{knowledge_point_id}:
+    get:
+      summary: Read editable notes and feedback for one user knowledge point.
+      parameters:
+        - name: knowledge_point_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/UserIdQuery"
+      responses:
+        "200":
+          description: User-authored notes and feedback for the knowledge point.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserKnowledgeNotesAndFeedbackResponse"
   /api/memory/personal-knowledge/builds:
     post:
       summary: Activate a rebuildable personal knowledge build.
@@ -651,6 +706,8 @@ components:
         - personalNodeCount
         - personalEdgeCount
         - personalEvidenceCount
+        - userKnowledgeNoteCount
+        - userKnowledgeFeedbackCount
         - dueReviewCount
         - practiceAttemptCount
         - practiceAnalysisCount
@@ -672,6 +729,10 @@ components:
         personalEdgeCount:
           type: integer
         personalEvidenceCount:
+          type: integer
+        userKnowledgeNoteCount:
+          type: integer
+        userKnowledgeFeedbackCount:
           type: integer
         dueReviewCount:
           type: integer
@@ -747,6 +808,75 @@ components:
       properties:
         wrongQuestion:
           $ref: "#/components/schemas/WrongQuestionCreateRequest"
+    UserKnowledgeNoteRequest:
+      type: object
+      required: [id, userId, knowledgePointId, note, customTags, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        knowledgePointId:
+          type: string
+        note:
+          type: string
+        customTags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UserKnowledgeNoteResponse:
+      type: object
+      required: [note]
+      properties:
+        note:
+          $ref: "#/components/schemas/UserKnowledgeNoteRequest"
+    UserKnowledgeFeedbackRequest:
+      type: object
+      required: [id, userId, knowledgePointId, feedbackType, comment, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        knowledgePointId:
+          type: string
+        feedbackType:
+          type: string
+          enum:
+            - confirm_weakness
+            - deny_weakness
+            - pause_practice
+            - resume_practice
+            - mark_mastered
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    UserKnowledgeFeedbackResponse:
+      type: object
+      required: [feedback]
+      properties:
+        feedback:
+          $ref: "#/components/schemas/UserKnowledgeFeedbackRequest"
+    UserKnowledgeNotesAndFeedbackResponse:
+      type: object
+      required: [notes, feedback]
+      properties:
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserKnowledgeNoteRequest"
+        feedback:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserKnowledgeFeedbackRequest"
     PersonalKnowledgeBuildActivateRequest:
       type: object
       required: [build, nodes, edges, evidence]
@@ -1018,6 +1148,9 @@ components:
         - stem
         - answer
         - explanation
+        - knowledgePointLinks
+        - expectedErrorTraps
+        - gradingRubric
         - difficulty
         - questionType
         - model
@@ -1054,6 +1187,16 @@ components:
           type: string
         explanation:
           type: string
+        knowledgePointLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedQuestionKnowledgeLink"
+        expectedErrorTraps:
+          type: array
+          items:
+            type: string
+        gradingRubric:
+          type: string
         difficulty:
           type: string
         questionType:
@@ -1069,6 +1212,17 @@ components:
         createdAt:
           type: string
           format: date-time
+    GeneratedQuestionKnowledgeLink:
+      type: object
+      required: [knowledgePointId, contentWeight, role]
+      properties:
+        knowledgePointId:
+          type: string
+        contentWeight:
+          type: number
+        role:
+          type: string
+          enum: [primary, secondary, prerequisite, trap]
     GeneratedQuestionResponse:
       type: object
       required: [question]

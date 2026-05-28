@@ -11,6 +11,7 @@ from my_sifu_agent.memory import (
     EvidenceType,
     FailedReasonType,
     GeneratedQuestion,
+    GeneratedQuestionKnowledgeLink,
     GeneratedQuestionMode,
     GeneratedQuestionStatus,
     KnowledgeLinkRole,
@@ -33,6 +34,9 @@ from my_sifu_agent.memory import (
     ReviewScheduleItem,
     ReviewScheduleStatus,
     TagLink,
+    UserKnowledgeFeedback,
+    UserKnowledgeFeedbackType,
+    UserKnowledgeNote,
     VerificationVerdict,
     WrongQuestion,
     WrongQuestionKnowledgeLink,
@@ -75,6 +79,40 @@ class Phase3MemoryApi:
             tag_links=tag_links,
         )
         return {"wrongQuestion": _wrong_question_to_json(stored)}
+
+    def upsert_user_knowledge_note(self, payload: dict[str, Any]) -> dict[str, Any]:
+        note = self.workspace.upsert_user_knowledge_note(
+            _user_knowledge_note_from_json(payload)
+        )
+        return {"note": _user_knowledge_note_to_json(note)}
+
+    def record_user_knowledge_feedback(self, payload: dict[str, Any]) -> dict[str, Any]:
+        feedback = self.workspace.record_user_knowledge_feedback(
+            _user_knowledge_feedback_from_json(payload)
+        )
+        return {"feedback": _user_knowledge_feedback_to_json(feedback)}
+
+    def get_user_knowledge_notes_and_feedback(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> dict[str, Any]:
+        return {
+            "notes": [
+                _user_knowledge_note_to_json(note)
+                for note in self.workspace.list_user_knowledge_notes(
+                    user_id,
+                    knowledge_point_id,
+                )
+            ],
+            "feedback": [
+                _user_knowledge_feedback_to_json(feedback)
+                for feedback in self.workspace.list_user_knowledge_feedback(
+                    user_id,
+                    knowledge_point_id,
+                )
+            ],
+        }
 
     def activate_personal_knowledge_build(self, payload: dict[str, Any]) -> dict[str, Any]:
         build = _personal_knowledge_build_from_json(_required(payload, "build"))
@@ -204,6 +242,8 @@ def _snapshot_to_json(snapshot: Phase3MemorySnapshot) -> dict[str, Any]:
         "personalNodeCount": snapshot.personal_node_count,
         "personalEdgeCount": snapshot.personal_edge_count,
         "personalEvidenceCount": snapshot.personal_evidence_count,
+        "userKnowledgeNoteCount": snapshot.user_knowledge_note_count,
+        "userKnowledgeFeedbackCount": snapshot.user_knowledge_feedback_count,
         "dueReviewCount": snapshot.due_review_count,
         "practiceAttemptCount": snapshot.practice_attempt_count,
         "practiceAnalysisCount": snapshot.practice_analysis_count,
@@ -261,6 +301,54 @@ def _tag_link_from_json(target_id: str, payload: dict[str, Any]) -> TagLink:
         source=LinkSource(_required(payload, "source")),
         confidence=float(_required(payload, "confidence")),
     )
+
+
+def _user_knowledge_note_from_json(payload: dict[str, Any]) -> UserKnowledgeNote:
+    return UserKnowledgeNote(
+        id=_required(payload, "id"),
+        user_id=_required(payload, "userId"),
+        knowledge_point_id=_required(payload, "knowledgePointId"),
+        note=_required(payload, "note"),
+        custom_tags=tuple(payload.get("customTags", [])),
+        created_at=_parse_datetime(_required(payload, "createdAt")),
+        updated_at=_parse_datetime(_required(payload, "updatedAt")),
+    )
+
+
+def _user_knowledge_note_to_json(note: UserKnowledgeNote) -> dict[str, Any]:
+    return {
+        "id": note.id,
+        "userId": note.user_id,
+        "knowledgePointId": note.knowledge_point_id,
+        "note": note.note,
+        "customTags": list(note.custom_tags),
+        "createdAt": note.created_at.isoformat(),
+        "updatedAt": note.updated_at.isoformat(),
+    }
+
+
+def _user_knowledge_feedback_from_json(payload: dict[str, Any]) -> UserKnowledgeFeedback:
+    return UserKnowledgeFeedback(
+        id=_required(payload, "id"),
+        user_id=_required(payload, "userId"),
+        knowledge_point_id=_required(payload, "knowledgePointId"),
+        feedback_type=UserKnowledgeFeedbackType(_required(payload, "feedbackType")),
+        comment=_required(payload, "comment"),
+        created_at=_parse_datetime(_required(payload, "createdAt")),
+    )
+
+
+def _user_knowledge_feedback_to_json(
+    feedback: UserKnowledgeFeedback,
+) -> dict[str, Any]:
+    return {
+        "id": feedback.id,
+        "userId": feedback.user_id,
+        "knowledgePointId": feedback.knowledge_point_id,
+        "feedbackType": feedback.feedback_type.value,
+        "comment": feedback.comment,
+        "createdAt": feedback.created_at.isoformat(),
+    }
 
 
 def _personal_knowledge_build_from_json(payload: dict[str, Any]) -> PersonalKnowledgeBuild:
@@ -484,6 +572,12 @@ def _generated_question_from_json(payload: dict[str, Any]) -> GeneratedQuestion:
         stem=_required(payload, "stem"),
         answer=_required(payload, "answer"),
         explanation=_required(payload, "explanation"),
+        knowledge_point_links=tuple(
+            _generated_question_knowledge_link_from_json(item)
+            for item in _required(payload, "knowledgePointLinks")
+        ),
+        expected_error_traps=tuple(_required(payload, "expectedErrorTraps")),
+        grading_rubric=_required(payload, "gradingRubric"),
         difficulty=_required(payload, "difficulty"),
         question_type=_required(payload, "questionType"),
         model=_required(payload, "model"),
@@ -492,6 +586,26 @@ def _generated_question_from_json(payload: dict[str, Any]) -> GeneratedQuestion:
         personal_knowledge_build_id=_required(payload, "personalKnowledgeBuildId"),
         created_at=_parse_datetime(_required(payload, "createdAt")),
     )
+
+
+def _generated_question_knowledge_link_from_json(
+    payload: dict[str, Any],
+) -> GeneratedQuestionKnowledgeLink:
+    return GeneratedQuestionKnowledgeLink(
+        knowledge_point_id=_required(payload, "knowledgePointId"),
+        content_weight=float(_required(payload, "contentWeight")),
+        role=KnowledgeLinkRole(_required(payload, "role")),
+    )
+
+
+def _generated_question_knowledge_link_to_json(
+    link: GeneratedQuestionKnowledgeLink,
+) -> dict[str, Any]:
+    return {
+        "knowledgePointId": link.knowledge_point_id,
+        "contentWeight": link.content_weight,
+        "role": link.role.value,
+    }
 
 
 def _generated_question_to_json(question: GeneratedQuestion) -> dict[str, Any]:
@@ -505,6 +619,12 @@ def _generated_question_to_json(question: GeneratedQuestion) -> dict[str, Any]:
         "stem": question.stem,
         "answer": question.answer,
         "explanation": question.explanation,
+        "knowledgePointLinks": [
+            _generated_question_knowledge_link_to_json(link)
+            for link in question.knowledge_point_links
+        ],
+        "expectedErrorTraps": list(question.expected_error_traps),
+        "gradingRubric": question.grading_rubric,
         "difficulty": question.difficulty,
         "questionType": question.question_type,
         "model": question.model,

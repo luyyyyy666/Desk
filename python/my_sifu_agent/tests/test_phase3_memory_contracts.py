@@ -6,6 +6,7 @@ from my_sifu_agent.memory import (
     EvidenceType,
     FailedReasonType,
     GeneratedQuestion,
+    GeneratedQuestionKnowledgeLink,
     GeneratedQuestionMode,
     GeneratedQuestionStatus,
     HybridRetrievalRequest,
@@ -317,6 +318,15 @@ def test_generated_questions_require_verifier_approval_before_practice() -> None
             stem="A generated linear-function question.",
             answer="42",
             explanation="A checked explanation.",
+            knowledge_point_links=(
+                GeneratedQuestionKnowledgeLink(
+                    knowledge_point_id="kp_due",
+                    content_weight=1.0,
+                    role=KnowledgeLinkRole.PRIMARY,
+                ),
+            ),
+            expected_error_traps=(),
+            grading_rubric="",
             difficulty="medium",
             question_type="open_response",
             model="generator-model",

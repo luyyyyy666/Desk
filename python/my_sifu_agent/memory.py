@@ -64,6 +64,14 @@ class EvidenceType(StrEnum):
     MANUAL_CONFIRMATION = "manual_confirmation"
 
 
+class UserKnowledgeFeedbackType(StrEnum):
+    CONFIRM_WEAKNESS = "confirm_weakness"
+    DENY_WEAKNESS = "deny_weakness"
+    PAUSE_PRACTICE = "pause_practice"
+    RESUME_PRACTICE = "resume_practice"
+    MARK_MASTERED = "mark_mastered"
+
+
 class ReviewScheduleStatus(StrEnum):
     ACTIVE = "active"
     PAUSED = "paused"
@@ -276,7 +284,7 @@ class UserKnowledgeFeedback:
     id: str
     user_id: str
     knowledge_point_id: str
-    feedback_type: str
+    feedback_type: UserKnowledgeFeedbackType
     comment: str
     created_at: datetime
 
@@ -333,6 +341,13 @@ class AttemptErrorLink:
 
 
 @dataclass(frozen=True)
+class GeneratedQuestionKnowledgeLink:
+    knowledge_point_id: str
+    content_weight: float
+    role: KnowledgeLinkRole
+
+
+@dataclass(frozen=True)
 class GeneratedQuestion:
     id: str
     user_id: str
@@ -343,6 +358,9 @@ class GeneratedQuestion:
     stem: str
     answer: str
     explanation: str
+    knowledge_point_links: tuple[GeneratedQuestionKnowledgeLink, ...]
+    expected_error_traps: tuple[str, ...]
+    grading_rubric: str
     difficulty: str
     question_type: str
     model: str
@@ -408,6 +426,8 @@ class Phase3MemorySnapshot:
     personal_node_count: int
     personal_edge_count: int
     personal_evidence_count: int
+    user_knowledge_note_count: int
+    user_knowledge_feedback_count: int
     due_review_count: int
     practice_attempt_count: int
     practice_analysis_count: int
@@ -568,6 +588,48 @@ class InMemoryPersonalKnowledgeRepository:
             for evidence in self._evidence.values()
             if evidence.user_id == user_id and evidence.build_id == build_id
         ]
+
+
+@dataclass
+class InMemoryUserKnowledgeRepository:
+    _notes: dict[tuple[str, str, str], UserKnowledgeNote] = field(default_factory=dict)
+    _feedback: dict[tuple[str, str, str], UserKnowledgeFeedback] = field(default_factory=dict)
+
+    def upsert_note(self, note: UserKnowledgeNote) -> UserKnowledgeNote:
+        self._notes[(note.user_id, note.knowledge_point_id, note.id)] = note
+        return note
+
+    def record_feedback(self, feedback: UserKnowledgeFeedback) -> UserKnowledgeFeedback:
+        self._feedback[(feedback.user_id, feedback.knowledge_point_id, feedback.id)] = feedback
+        return feedback
+
+    def list_notes(self, user_id: str, knowledge_point_id: str) -> list[UserKnowledgeNote]:
+        return [
+            note
+            for (stored_user_id, stored_knowledge_point_id, _), note in self._notes.items()
+            if stored_user_id == user_id and stored_knowledge_point_id == knowledge_point_id
+        ]
+
+    def list_feedback(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> list[UserKnowledgeFeedback]:
+        return [
+            feedback
+            for (
+                stored_user_id,
+                stored_knowledge_point_id,
+                _,
+            ), feedback in self._feedback.items()
+            if stored_user_id == user_id and stored_knowledge_point_id == knowledge_point_id
+        ]
+
+    def count_notes(self, user_id: str) -> int:
+        return sum(1 for stored_user_id, _, _ in self._notes if stored_user_id == user_id)
+
+    def count_feedback(self, user_id: str) -> int:
+        return sum(1 for stored_user_id, _, _ in self._feedback if stored_user_id == user_id)
 
 
 @dataclass
@@ -757,6 +819,7 @@ class Phase3MemoryWorkspace:
     public_knowledge_repository: InMemoryPublicKnowledgeRepository
     wrong_question_repository: InMemoryWrongQuestionRepository
     personal_knowledge_repository: InMemoryPersonalKnowledgeRepository
+    user_knowledge_repository: InMemoryUserKnowledgeRepository
     review_schedule_repository: InMemoryReviewScheduleRepository
     practice_repository: InMemoryPracticeRepository
     generated_question_repository: InMemoryGeneratedQuestionRepository
@@ -767,6 +830,7 @@ class Phase3MemoryWorkspace:
             public_knowledge_repository=InMemoryPublicKnowledgeRepository(),
             wrong_question_repository=InMemoryWrongQuestionRepository(),
             personal_knowledge_repository=InMemoryPersonalKnowledgeRepository(),
+            user_knowledge_repository=InMemoryUserKnowledgeRepository(),
             review_schedule_repository=InMemoryReviewScheduleRepository(),
             practice_repository=InMemoryPracticeRepository(),
             generated_question_repository=InMemoryGeneratedQuestionRepository(),
@@ -812,6 +876,29 @@ class Phase3MemoryWorkspace:
         for evidence_item in evidence:
             self.personal_knowledge_repository.add_evidence(evidence_item)
         return self.personal_knowledge_repository.activate_build(build.id)
+
+    def upsert_user_knowledge_note(self, note: UserKnowledgeNote) -> UserKnowledgeNote:
+        return self.user_knowledge_repository.upsert_note(note)
+
+    def record_user_knowledge_feedback(
+        self,
+        feedback: UserKnowledgeFeedback,
+    ) -> UserKnowledgeFeedback:
+        return self.user_knowledge_repository.record_feedback(feedback)
+
+    def list_user_knowledge_notes(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> list[UserKnowledgeNote]:
+        return self.user_knowledge_repository.list_notes(user_id, knowledge_point_id)
+
+    def list_user_knowledge_feedback(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> list[UserKnowledgeFeedback]:
+        return self.user_knowledge_repository.list_feedback(user_id, knowledge_point_id)
 
     def schedule_review(self, item: ReviewScheduleItem) -> ReviewScheduleItem:
         return self.review_schedule_repository.add_item(item)
@@ -899,6 +986,8 @@ class Phase3MemoryWorkspace:
             personal_node_count=len(personal_nodes),
             personal_edge_count=len(personal_edges),
             personal_evidence_count=len(personal_evidence),
+            user_knowledge_note_count=self.user_knowledge_repository.count_notes(user_id),
+            user_knowledge_feedback_count=self.user_knowledge_repository.count_feedback(user_id),
             due_review_count=len(
                 self.review_schedule_repository.list_due_items(user_id, now=now)
             ),
