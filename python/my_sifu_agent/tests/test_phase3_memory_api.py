@@ -171,6 +171,35 @@ def test_memory_api_returns_daily_practice_generation_plan_defaults() -> None:
     assert enhanced_plan["plan"]["llmGeneratedQuestionCount"] == 3
 
 
+def test_memory_api_returns_hybrid_retrieval_plan_without_running_rag() -> None:
+    api = Phase3MemoryApi.empty()
+
+    response = api.plan_hybrid_retrieval(
+        {
+            "query": "一次函数",
+            "subject": "math",
+            "gradeBand": "middle_school",
+            "examStage": "zhongkao",
+            "knowledgePointIds": ["kp_linear_function"],
+            "tagIds": ["tag_application_problem"],
+            "includePublicGraph": True,
+            "includePersonalGraph": True,
+            "vectorQueryText": "一次函数应用题错因",
+            "rerank": True,
+            "embeddingJobId": None,
+        }
+    )
+
+    assert response["plan"]["pipeline"] == [
+        "structured_filter",
+        "graph_expansion",
+        "vector_search",
+        "rerank",
+    ]
+    assert response["plan"]["embeddingJobId"] is None
+    assert response["plan"]["executesRetrieval"] is False
+
+
 def test_memory_api_records_practice_analysis_with_error_weight() -> None:
     now = datetime(2026, 5, 28, 11, 0, tzinfo=UTC)
     api = Phase3MemoryApi.empty()

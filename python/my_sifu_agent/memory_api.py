@@ -15,6 +15,7 @@ from my_sifu_agent.memory import (
     GeneratedQuestionKnowledgeLink,
     GeneratedQuestionMode,
     GeneratedQuestionStatus,
+    HybridRetrievalRequest,
     KnowledgeLinkRole,
     LinkSource,
     MasteryState,
@@ -162,6 +163,10 @@ class Phase3MemoryApi:
             target_knowledge_point_ids=target_knowledge_point_ids,
         )
         return {"plan": _practice_generation_plan_to_json(plan)}
+
+    def plan_hybrid_retrieval(self, payload: dict[str, Any]) -> dict[str, Any]:
+        request = _hybrid_retrieval_request_from_json(payload)
+        return {"plan": _hybrid_retrieval_request_to_json(request)}
 
     def get_user_knowledge_state(
         self,
@@ -515,6 +520,40 @@ def _practice_generation_plan_to_json(plan: PracticeGenerationPlan) -> dict[str,
         "stableBankQuestionCount": plan.stable_bank_question_count,
         "llmGeneratedQuestionCount": plan.llm_generated_question_count,
         "generationModes": [mode.value for mode in plan.generation_modes],
+    }
+
+
+def _hybrid_retrieval_request_from_json(payload: dict[str, Any]) -> HybridRetrievalRequest:
+    return HybridRetrievalRequest(
+        query=_required(payload, "query"),
+        subject=_required(payload, "subject"),
+        grade_band=_required(payload, "gradeBand"),
+        exam_stage=_required(payload, "examStage"),
+        knowledge_point_ids=list(_required(payload, "knowledgePointIds")),
+        tag_ids=list(_required(payload, "tagIds")),
+        include_public_graph=bool(_required(payload, "includePublicGraph")),
+        include_personal_graph=bool(_required(payload, "includePersonalGraph")),
+        vector_query_text=payload.get("vectorQueryText"),
+        rerank=bool(payload.get("rerank", True)),
+        embedding_job_id=payload.get("embeddingJobId"),
+    )
+
+
+def _hybrid_retrieval_request_to_json(request: HybridRetrievalRequest) -> dict[str, Any]:
+    return {
+        "query": request.query,
+        "subject": request.subject,
+        "gradeBand": request.grade_band,
+        "examStage": request.exam_stage,
+        "knowledgePointIds": request.knowledge_point_ids,
+        "tagIds": request.tag_ids,
+        "includePublicGraph": request.include_public_graph,
+        "includePersonalGraph": request.include_personal_graph,
+        "vectorQueryText": request.vector_query_text,
+        "rerank": request.rerank,
+        "embeddingJobId": request.embedding_job_id,
+        "pipeline": list(request.pipeline),
+        "executesRetrieval": False,
     }
 
 

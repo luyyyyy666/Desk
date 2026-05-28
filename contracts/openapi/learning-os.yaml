@@ -319,6 +319,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DailyPracticeGenerationPlanResponse"
+  /api/memory/hybrid-retrieval/plan:
+    post:
+      summary: Return the Phase 3 hybrid retrieval plan for future RAG.
+      description: This endpoint validates retrieval inputs and returns the intended pipeline only; it does not execute embeddings, vector search, reranking, or database retrieval in Phase 3.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HybridRetrievalPlanRequest"
+      responses:
+        "200":
+          description: Hybrid retrieval plan contract.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HybridRetrievalPlanResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/memory/practice-attempts/analysis:
     post:
       summary: Record practice attempt analysis and weighted error links.
@@ -1148,6 +1167,67 @@ components:
               items:
                 type: string
                 enum: [stable_bank, llm_tool_generated]
+    HybridRetrievalPlanRequest:
+      type: object
+      required:
+        - query
+        - subject
+        - gradeBand
+        - examStage
+        - knowledgePointIds
+        - tagIds
+        - includePublicGraph
+        - includePersonalGraph
+      properties:
+        query:
+          type: string
+        subject:
+          type: string
+        gradeBand:
+          type: string
+        examStage:
+          type: string
+        knowledgePointIds:
+          type: array
+          items:
+            type: string
+        tagIds:
+          type: array
+          items:
+            type: string
+        includePublicGraph:
+          type: boolean
+        includePersonalGraph:
+          type: boolean
+        vectorQueryText:
+          oneOf:
+            - type: string
+            - type: "null"
+        rerank:
+          type: boolean
+          default: true
+        embeddingJobId:
+          oneOf:
+            - type: string
+            - type: "null"
+    HybridRetrievalPlanResponse:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          allOf:
+            - $ref: "#/components/schemas/HybridRetrievalPlanRequest"
+            - type: object
+              required: [pipeline, executesRetrieval]
+              properties:
+                pipeline:
+                  type: array
+                  items:
+                    type: string
+                    enum: [structured_filter, graph_expansion, vector_search, rerank]
+                executesRetrieval:
+                  type: boolean
+                  example: false
     ReviewScheduleItem:
       type: object
       required:
