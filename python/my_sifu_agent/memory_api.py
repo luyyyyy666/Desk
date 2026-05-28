@@ -8,6 +8,7 @@ from typing import Any
 from my_sifu_agent.memory import (
     ActivePersonalKnowledgeBuildSnapshot,
     AttemptErrorLink,
+    DailyPracticePlanMode,
     EvidenceType,
     FailedReasonType,
     GeneratedQuestion,
@@ -27,6 +28,7 @@ from my_sifu_agent.memory import (
     Phase3MemoryWorkspace,
     PracticeAttempt,
     PracticeAttemptAnalysis,
+    PracticeGenerationPlan,
     PublicKnowledgeImportResult,
     PublicKnowledgeSeedData,
     PublicKnowledgeSnapshot,
@@ -149,6 +151,17 @@ class Phase3MemoryApi:
     ) -> dict[str, Any]:
         targets = self.workspace.select_daily_practice_targets(user_id, now=now, limit=limit)
         return {"targets": [_personal_knowledge_node_to_json(target) for target in targets]}
+
+    def get_daily_practice_generation_plan(
+        self,
+        mode: str,
+        target_knowledge_point_ids: list[str],
+    ) -> dict[str, Any]:
+        plan = PracticeGenerationPlan.for_mode(
+            DailyPracticePlanMode(mode),
+            target_knowledge_point_ids=target_knowledge_point_ids,
+        )
+        return {"plan": _practice_generation_plan_to_json(plan)}
 
     def get_user_knowledge_state(
         self,
@@ -491,6 +504,17 @@ def _review_schedule_item_to_json(item: ReviewScheduleItem) -> dict[str, Any]:
         "status": item.status.value,
         "createdAt": item.created_at.isoformat(),
         "updatedAt": item.updated_at.isoformat(),
+    }
+
+
+def _practice_generation_plan_to_json(plan: PracticeGenerationPlan) -> dict[str, Any]:
+    return {
+        "mode": plan.mode.value,
+        "targetKnowledgePointIds": list(plan.target_knowledge_point_ids),
+        "totalQuestionCount": plan.total_question_count,
+        "stableBankQuestionCount": plan.stable_bank_question_count,
+        "llmGeneratedQuestionCount": plan.llm_generated_question_count,
+        "generationModes": [mode.value for mode in plan.generation_modes],
     }
 
 

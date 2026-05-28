@@ -79,6 +79,11 @@ class ReviewScheduleStatus(StrEnum):
     MASTERED = "mastered"
 
 
+class DailyPracticePlanMode(StrEnum):
+    DEFAULT = "default"
+    ENHANCED = "enhanced"
+
+
 class GeneratedQuestionMode(StrEnum):
     STABLE_BANK = "stable_bank"
     LLM_TOOL_GENERATED = "llm_tool_generated"
@@ -407,6 +412,45 @@ class HybridRetrievalRequest:
         if self.rerank:
             steps.append("rerank")
         return tuple(steps)
+
+
+@dataclass(frozen=True)
+class PracticeGenerationPlan:
+    mode: DailyPracticePlanMode
+    target_knowledge_point_ids: tuple[str, ...]
+    total_question_count: int
+    llm_generated_question_count: int
+
+    @classmethod
+    def for_mode(
+        cls,
+        mode: DailyPracticePlanMode,
+        *,
+        target_knowledge_point_ids: list[str] | tuple[str, ...],
+    ) -> PracticeGenerationPlan:
+        if mode == DailyPracticePlanMode.DEFAULT:
+            llm_generated_question_count = 1
+        else:
+            llm_generated_question_count = 3
+        return cls(
+            mode=mode,
+            target_knowledge_point_ids=tuple(target_knowledge_point_ids),
+            total_question_count=3,
+            llm_generated_question_count=llm_generated_question_count,
+        )
+
+    @property
+    def stable_bank_question_count(self) -> int:
+        return self.total_question_count - self.llm_generated_question_count
+
+    @property
+    def generation_modes(self) -> tuple[GeneratedQuestionMode, ...]:
+        modes: list[GeneratedQuestionMode] = []
+        if self.stable_bank_question_count > 0:
+            modes.append(GeneratedQuestionMode.STABLE_BANK)
+        if self.llm_generated_question_count > 0:
+            modes.append(GeneratedQuestionMode.LLM_TOOL_GENERATED)
+        return tuple(modes)
 
 
 @dataclass(frozen=True)

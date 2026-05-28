@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from my_sifu_agent.memory import (
+    DailyPracticePlanMode,
     EvidenceType,
     GeneratedQuestionMode,
     GeneratedQuestionStatus,
@@ -149,6 +150,25 @@ def test_memory_api_activates_personal_build_and_selects_due_targets() -> None:
     assert build_response["build"]["status"] == PersonalKnowledgeBuildStatus.ACTIVE.value
     assert targets["targets"][0]["knowledgePointId"] == "kp_due"
     assert snapshot["dueReviewCount"] == 1
+
+
+def test_memory_api_returns_daily_practice_generation_plan_defaults() -> None:
+    api = Phase3MemoryApi.empty()
+
+    default_plan = api.get_daily_practice_generation_plan(
+        "default",
+        ["kp_linear_modeling", "kp_due"],
+    )
+    enhanced_plan = api.get_daily_practice_generation_plan(
+        DailyPracticePlanMode.ENHANCED.value,
+        ["kp_linear_modeling"],
+    )
+
+    assert default_plan["plan"]["totalQuestionCount"] == 3
+    assert default_plan["plan"]["llmGeneratedQuestionCount"] == 1
+    assert default_plan["plan"]["stableBankQuestionCount"] == 2
+    assert default_plan["plan"]["generationModes"] == ["stable_bank", "llm_tool_generated"]
+    assert enhanced_plan["plan"]["llmGeneratedQuestionCount"] == 3
 
 
 def test_memory_api_records_practice_analysis_with_error_weight() -> None:

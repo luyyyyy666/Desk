@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from my_sifu_agent.memory import (
+    DailyPracticePlanMode,
     DailyPracticeService,
     EvidenceType,
     FailedReasonType,
@@ -27,6 +28,7 @@ from my_sifu_agent.memory import (
     PersonalKnowledgeNode,
     PracticeAttempt,
     PracticeAttemptAnalysis,
+    PracticeGenerationPlan,
     PublicKnowledgeSeedData,
     QuestionGenerationService,
     QuestionVerificationReport,
@@ -301,6 +303,32 @@ def test_daily_practice_selects_due_targets_and_records_attempt_analysis() -> No
     assert practice_repository.list_attempts("user_001") == [attempt]
     assert practice_repository.get_analysis(attempt.id) == analysis
     assert practice_repository.list_error_links(attempt.id)[0].error_weight == 0.9
+
+
+def test_daily_practice_generation_plan_preserves_phase3_first_version_defaults() -> None:
+    default_plan = PracticeGenerationPlan.for_mode(
+        DailyPracticePlanMode.DEFAULT,
+        target_knowledge_point_ids=["kp_linear_modeling", "kp_due"],
+    )
+    enhanced_plan = PracticeGenerationPlan.for_mode(
+        DailyPracticePlanMode.ENHANCED,
+        target_knowledge_point_ids=["kp_linear_modeling"],
+    )
+
+    assert default_plan.total_question_count == 3
+    assert default_plan.llm_generated_question_count == 1
+    assert default_plan.stable_bank_question_count == 2
+    assert default_plan.generation_modes == (
+        GeneratedQuestionMode.STABLE_BANK,
+        GeneratedQuestionMode.LLM_TOOL_GENERATED,
+    )
+    assert default_plan.target_knowledge_point_ids == (
+        "kp_linear_modeling",
+        "kp_due",
+    )
+    assert enhanced_plan.total_question_count == 3
+    assert enhanced_plan.llm_generated_question_count == 3
+    assert enhanced_plan.stable_bank_question_count == 0
 
 
 def test_generated_questions_require_verifier_approval_before_practice() -> None:

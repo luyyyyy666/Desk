@@ -293,6 +293,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DailyPracticeTargetsResponse"
+  /api/memory/daily-practice/generation-plan:
+    get:
+      summary: Read Phase 3 first-version daily-practice generation quotas.
+      description: This endpoint returns planning quotas only; it does not call LLMs, embeddings, RAG, or question generators.
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [default, enhanced]
+            default: default
+        - name: target_knowledge_point_ids
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: Daily-practice question quota plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyPracticeGenerationPlanResponse"
   /api/memory/practice-attempts/analysis:
     post:
       summary: Record practice attempt analysis and weighted error links.
@@ -1089,6 +1115,39 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PersonalKnowledgeNode"
+    DailyPracticeGenerationPlanResponse:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          type: object
+          required:
+            - mode
+            - targetKnowledgePointIds
+            - totalQuestionCount
+            - stableBankQuestionCount
+            - llmGeneratedQuestionCount
+            - generationModes
+          properties:
+            mode:
+              type: string
+              enum: [default, enhanced]
+            targetKnowledgePointIds:
+              type: array
+              items:
+                type: string
+            totalQuestionCount:
+              type: integer
+              example: 3
+            stableBankQuestionCount:
+              type: integer
+            llmGeneratedQuestionCount:
+              type: integer
+            generationModes:
+              type: array
+              items:
+                type: string
+                enum: [stable_bank, llm_tool_generated]
     ReviewScheduleItem:
       type: object
       required:
