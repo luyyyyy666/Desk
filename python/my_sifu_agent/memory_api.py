@@ -150,6 +150,18 @@ class Phase3MemoryApi:
         targets = self.workspace.select_daily_practice_targets(user_id, now=now, limit=limit)
         return {"targets": [_personal_knowledge_node_to_json(target) for target in targets]}
 
+    def get_user_knowledge_state(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> dict[str, Any]:
+        node = self.workspace.get_active_personal_knowledge_node(user_id, knowledge_point_id)
+        review = self.workspace.get_review_schedule_item(user_id, knowledge_point_id)
+        return {
+            "node": _personal_knowledge_node_to_json(node),
+            "reviewSchedule": _review_schedule_item_to_json(review),
+        }
+
     def record_practice_attempt_analysis(self, payload: dict[str, Any]) -> dict[str, Any]:
         attempt = _practice_attempt_from_json(_required(payload, "attempt"))
         analysis = _practice_attempt_analysis_from_json(_required(payload, "analysis"))

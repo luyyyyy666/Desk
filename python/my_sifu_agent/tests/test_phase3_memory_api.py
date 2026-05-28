@@ -199,6 +199,149 @@ def test_memory_api_records_practice_analysis_with_error_weight() -> None:
     assert snapshot["practiceAnalysisCount"] == 1
 
 
+def test_memory_api_exposes_mastery_pending_confirmation_and_user_confirmation() -> None:
+    now = datetime(2026, 5, 28, 11, 30, tzinfo=UTC)
+    api = Phase3MemoryApi.empty()
+    api.activate_personal_knowledge_build(
+        {
+            "build": {
+                "id": "pkb_001",
+                "userId": "user_001",
+                "buildVersion": 1,
+                "model": "manual-test",
+                "promptVersion": "phase3-test",
+                "publicKbVersion": "empty-v0",
+                "status": PersonalKnowledgeBuildStatus.BUILDING.value,
+                "createdAt": now.isoformat(),
+            },
+            "nodes": [
+                {
+                    "id": "node_due",
+                    "buildId": "pkb_001",
+                    "userId": "user_001",
+                    "knowledgePointId": "kp_due",
+                    "masteryState": MasteryState.REVIEWING.value,
+                    "masteryScore": 0.86,
+                    "weaknessScore": 0.14,
+                    "confidence": 0.84,
+                    "evidenceCount": 1,
+                    "summary": "Almost mastered.",
+                    "summaryForEmbedding": "almost mastered",
+                    "createdAt": now.isoformat(),
+                    "updatedAt": now.isoformat(),
+                }
+            ],
+            "edges": [],
+            "evidence": [
+                {
+                    "id": "ev_due",
+                    "buildId": "pkb_001",
+                    "userId": "user_001",
+                    "targetType": "node",
+                    "targetId": "node_due",
+                    "evidenceType": EvidenceType.WRONG_QUESTION.value,
+                    "evidenceId": "wq_001",
+                    "analysisSummary": "Prior evidence.",
+                    "createdAt": now.isoformat(),
+                }
+            ],
+        }
+    )
+    api.schedule_review(
+        {
+            "id": "review_due",
+            "userId": "user_001",
+            "knowledgePointId": "kp_due",
+            "nextReviewAt": (now - timedelta(hours=1)).isoformat(),
+            "intervalDays": 2,
+            "easeFactor": 2.0,
+            "consecutiveSuccesses": 2,
+            "status": ReviewScheduleStatus.ACTIVE.value,
+            "createdAt": now.isoformat(),
+            "updatedAt": now.isoformat(),
+        }
+    )
+    api.submit_generated_question(
+        {
+            "id": "question_due",
+            "userId": "user_001",
+            "generationRequestId": "request_001",
+            "generationAttempt": 1,
+            "mode": GeneratedQuestionMode.LLM_TOOL_GENERATED.value,
+            "status": GeneratedQuestionStatus.APPROVED_FOR_PRACTICE.value,
+            "stem": "Correct practice question.",
+            "answer": "A",
+            "explanation": "Explanation.",
+            "knowledgePointLinks": [
+                {
+                    "knowledgePointId": "kp_due",
+                    "contentWeight": 1.0,
+                    "role": "primary",
+                }
+            ],
+            "expectedErrorTraps": [],
+            "gradingRubric": "",
+            "difficulty": "medium",
+            "questionType": "open_response",
+            "model": "generator-model",
+            "promptVersion": "phase3-test",
+            "publicKbVersion": "empty-v0",
+            "personalKnowledgeBuildId": "pkb_001",
+            "createdAt": now.isoformat(),
+        }
+    )
+
+    api.record_practice_attempt_analysis(
+        {
+            "attempt": {
+                "id": "attempt_correct",
+                "userId": "user_001",
+                "questionId": "question_due",
+                "userAnswer": "A",
+                "isCorrect": True,
+                "difficulty": "medium",
+                "timeSpentSeconds": 90,
+                "hintUsed": False,
+                "reviewedExplanation": True,
+                "createdAt": now.isoformat(),
+            },
+            "analysis": {
+                "id": "analysis_correct",
+                "attemptId": "attempt_correct",
+                "model": "manual-test",
+                "promptVersion": "phase3-test",
+                "analysisSummary": "Correct answer confirms mastery improvement.",
+                "masteryDelta": 0.08,
+                "weaknessDelta": -0.08,
+                "confidence": 0.9,
+                "createdAt": now.isoformat(),
+            },
+            "errorLinks": [],
+        }
+    )
+
+    pending = api.get_user_knowledge_state("user_001", "kp_due")
+    assert pending["node"]["masteryState"] == MasteryState.MASTERED_PENDING_CONFIRM.value
+    assert pending["reviewSchedule"]["status"] == (
+        ReviewScheduleStatus.MASTERED_PENDING_CONFIRM.value
+    )
+
+    api.record_user_knowledge_feedback(
+        {
+            "id": "feedback_mastered",
+            "userId": "user_001",
+            "knowledgePointId": "kp_due",
+            "feedbackType": "mark_mastered",
+            "comment": "确认掌握。",
+            "createdAt": now.isoformat(),
+        }
+    )
+
+    mastered = api.get_user_knowledge_state("user_001", "kp_due")
+    assert mastered["node"]["masteryState"] == MasteryState.MASTERED.value
+    assert mastered["reviewSchedule"]["status"] == ReviewScheduleStatus.MASTERED.value
+
+
 def test_memory_api_enforces_verifier_gate_for_generated_questions() -> None:
     now = datetime(2026, 5, 28, 12, 0, tzinfo=UTC)
     api = Phase3MemoryApi.empty()

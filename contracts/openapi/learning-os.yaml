@@ -239,6 +239,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserKnowledgeNotesAndFeedbackResponse"
+  /api/memory/user-knowledge/{knowledge_point_id}/state:
+    get:
+      summary: Read calculated mastery and review state for one user knowledge point.
+      description: This state is calculated by daily practice and user confirmation; clients must not edit it directly.
+      parameters:
+        - name: knowledge_point_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/UserIdQuery"
+      responses:
+        "200":
+          description: Active personal knowledge node and review schedule state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserKnowledgeStateResponse"
   /api/memory/personal-knowledge/builds:
     post:
       summary: Activate a rebuildable personal knowledge build.
@@ -877,6 +895,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/UserKnowledgeFeedbackRequest"
+    UserKnowledgeStateResponse:
+      type: object
+      required: [node, reviewSchedule]
+      properties:
+        node:
+          $ref: "#/components/schemas/PersonalKnowledgeNode"
+        reviewSchedule:
+          $ref: "#/components/schemas/ReviewScheduleItem"
     PersonalKnowledgeBuildActivateRequest:
       type: object
       required: [build, nodes, edges, evidence]
@@ -1048,6 +1074,44 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PersonalKnowledgeNode"
+    ReviewScheduleItem:
+      type: object
+      required:
+        - id
+        - userId
+        - knowledgePointId
+        - nextReviewAt
+        - intervalDays
+        - easeFactor
+        - consecutiveSuccesses
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        knowledgePointId:
+          type: string
+        nextReviewAt:
+          type: string
+          format: date-time
+        intervalDays:
+          type: integer
+        easeFactor:
+          type: number
+        consecutiveSuccesses:
+          type: integer
+        status:
+          type: string
+          enum: [active, paused, mastered_pending_confirm, mastered]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     PracticeAttemptAnalysisRequest:
       type: object
       required: [attempt, analysis, errorLinks]

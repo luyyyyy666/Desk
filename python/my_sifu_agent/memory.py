@@ -560,6 +560,12 @@ class InMemoryPersonalKnowledgeRepository:
             if node.user_id == user_id and node.build_id == build_id
         ]
 
+    def update_node(self, node: PersonalKnowledgeNode) -> PersonalKnowledgeNode:
+        if node.id not in self._nodes:
+            raise KeyError(f"unknown personal knowledge node: {node.id}")
+        self._nodes[node.id] = node
+        return node
+
     def add_edge(self, edge: PersonalKnowledgeEdge) -> PersonalKnowledgeEdge:
         self._edges[edge.id] = edge
         return edge
@@ -637,6 +643,24 @@ class InMemoryReviewScheduleRepository:
     _items: dict[str, ReviewScheduleItem] = field(default_factory=dict)
 
     def add_item(self, item: ReviewScheduleItem) -> ReviewScheduleItem:
+        self._items[item.id] = item
+        return item
+
+    def get_item(self, user_id: str, knowledge_point_id: str) -> ReviewScheduleItem:
+        matching_items = [
+            item
+            for item in self._items.values()
+            if item.user_id == user_id and item.knowledge_point_id == knowledge_point_id
+        ]
+        if not matching_items:
+            raise KeyError(
+                f"unknown review schedule item: {user_id}/{knowledge_point_id}"
+            )
+        return max(matching_items, key=lambda item: item.updated_at)
+
+    def update_item(self, item: ReviewScheduleItem) -> ReviewScheduleItem:
+        if item.id not in self._items:
+            raise KeyError(f"unknown review schedule item: {item.id}")
         self._items[item.id] = item
         return item
 
@@ -884,7 +908,10 @@ class Phase3MemoryWorkspace:
         self,
         feedback: UserKnowledgeFeedback,
     ) -> UserKnowledgeFeedback:
-        return self.user_knowledge_repository.record_feedback(feedback)
+        stored = self.user_knowledge_repository.record_feedback(feedback)
+        if feedback.feedback_type == UserKnowledgeFeedbackType.MARK_MASTERED:
+            self._confirm_mastery(feedback)
+        return stored
 
     def list_user_knowledge_notes(
         self,
@@ -902,6 +929,30 @@ class Phase3MemoryWorkspace:
 
     def schedule_review(self, item: ReviewScheduleItem) -> ReviewScheduleItem:
         return self.review_schedule_repository.add_item(item)
+
+    def get_review_schedule_item(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> ReviewScheduleItem:
+        return self.review_schedule_repository.get_item(user_id, knowledge_point_id)
+
+    def get_active_personal_knowledge_node(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+    ) -> PersonalKnowledgeNode:
+        active_build = self.personal_knowledge_repository.get_active_build(user_id)
+        matching_nodes = [
+            node
+            for node in self.personal_knowledge_repository.list_nodes(user_id, active_build.id)
+            if node.knowledge_point_id == knowledge_point_id
+        ]
+        if not matching_nodes:
+            raise KeyError(
+                f"unknown active personal knowledge node: {user_id}/{knowledge_point_id}"
+            )
+        return matching_nodes[0]
 
     def select_daily_practice_targets(
         self,
@@ -925,7 +976,12 @@ class Phase3MemoryWorkspace:
         error_links: list[dict[str, Any]] | list[AttemptErrorLink] | None = None,
     ) -> PracticeAttemptAnalysis:
         self.practice_repository.add_attempt(attempt)
-        return self.practice_repository.add_analysis(analysis, error_links=error_links)
+        stored_analysis = self.practice_repository.add_analysis(
+            analysis,
+            error_links=error_links,
+        )
+        self._apply_practice_analysis_to_mastery(attempt, stored_analysis)
+        return stored_analysis
 
     def submit_generated_question(self, question: GeneratedQuestion) -> GeneratedQuestion:
         return self.generated_question_repository.add_question(question)
@@ -1012,6 +1068,96 @@ class Phase3MemoryWorkspace:
         except LookupError:
             return None
 
+    def _apply_practice_analysis_to_mastery(
+        self,
+        attempt: PracticeAttempt,
+        analysis: PracticeAttemptAnalysis,
+    ) -> None:
+        target_knowledge_ids = self._practice_attempt_target_knowledge_ids(attempt, analysis)
+        for knowledge_point_id in target_knowledge_ids:
+            try:
+                node = self.get_active_personal_knowledge_node(
+                    attempt.user_id,
+                    knowledge_point_id,
+                )
+            except (KeyError, LookupError):
+                continue
+            mastery_score = _clamp_score(node.mastery_score + analysis.mastery_delta)
+            weakness_score = _clamp_score(node.weakness_score + analysis.weakness_delta)
+            mastery_state = node.mastery_state
+            if mastery_score >= 0.9:
+                mastery_state = MasteryState.MASTERED_PENDING_CONFIRM
+                self._set_review_status(
+                    attempt.user_id,
+                    knowledge_point_id,
+                    ReviewScheduleStatus.MASTERED_PENDING_CONFIRM,
+                    analysis.created_at,
+                )
+            elif attempt.is_correct and mastery_state == MasteryState.WEAK:
+                mastery_state = MasteryState.LEARNING
+            elif not attempt.is_correct:
+                mastery_state = MasteryState.WEAK
+
+            self.personal_knowledge_repository.update_node(
+                replace(
+                    node,
+                    mastery_state=mastery_state,
+                    mastery_score=mastery_score,
+                    weakness_score=weakness_score,
+                    updated_at=analysis.created_at,
+                )
+            )
+
+    def _practice_attempt_target_knowledge_ids(
+        self,
+        attempt: PracticeAttempt,
+        analysis: PracticeAttemptAnalysis,
+    ) -> list[str]:
+        error_links = self.practice_repository.list_error_links(attempt.id)
+        if error_links:
+            return [link.knowledge_point_id for link in error_links]
+        try:
+            question = self.generated_question_repository.get_question(attempt.question_id)
+        except KeyError:
+            return []
+        return [link.knowledge_point_id for link in question.knowledge_point_links]
+
+    def _confirm_mastery(self, feedback: UserKnowledgeFeedback) -> None:
+        try:
+            node = self.get_active_personal_knowledge_node(
+                feedback.user_id,
+                feedback.knowledge_point_id,
+            )
+        except (KeyError, LookupError):
+            return
+        if node.mastery_state != MasteryState.MASTERED_PENDING_CONFIRM:
+            return
+        self.personal_knowledge_repository.update_node(
+            replace(
+                node,
+                mastery_state=MasteryState.MASTERED,
+                updated_at=feedback.created_at,
+            )
+        )
+        self._set_review_status(
+            feedback.user_id,
+            feedback.knowledge_point_id,
+            ReviewScheduleStatus.MASTERED,
+            feedback.created_at,
+        )
+
+    def _set_review_status(
+        self,
+        user_id: str,
+        knowledge_point_id: str,
+        status: ReviewScheduleStatus,
+        updated_at: datetime,
+    ) -> None:
+        item = self.review_schedule_repository.get_item(user_id, knowledge_point_id)
+        self.review_schedule_repository.update_item(
+            replace(item, status=status, updated_at=updated_at)
+        )
+
     def _validate_personal_knowledge_evidence(
         self,
         *,
@@ -1033,3 +1179,7 @@ class Phase3MemoryWorkspace:
         if missing_node_ids or missing_edge_ids:
             missing = [*missing_node_ids, *missing_edge_ids]
             raise ValueError(f"personal knowledge targets must cite evidence: {missing}")
+
+
+def _clamp_score(value: float) -> float:
+    return round(min(1.0, max(0.0, value)), 4)
