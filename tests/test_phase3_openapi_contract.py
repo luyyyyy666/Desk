@@ -63,5 +63,7 @@ def test_learning_os_openapi_contract_declares_phase3_memory_schemas() -> None:
     assert "expectedErrorTraps" in content
     assert "gradingRubric" in content
     assert "teacher" not in content.lower()
+    assert "student" not in content.lower()
     assert "classroom" not in content.lower()
+    assert "school" not in content.lower()
     assert "tenant" not in content.lower()
