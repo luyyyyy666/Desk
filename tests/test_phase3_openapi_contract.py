@@ -24,6 +24,7 @@ def test_learning_os_openapi_contract_declares_phase3_memory_paths() -> None:
         "/api/memory/generated-questions/{question_id}/verification/start:",
         "/api/memory/generated-questions/{question_id}/verification-reports:",
         "/api/memory/generated-questions/{question_id}/approve-for-practice:",
+        "/api/memory/generated-questions/{question_id}/used-in-daily-practice:",
     ]:
         assert path in content
 

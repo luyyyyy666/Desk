@@ -377,6 +377,21 @@ paths:
                 $ref: "#/components/schemas/GeneratedQuestionResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/memory/generated-questions/{question_id}/used-in-daily-practice:
+    post:
+      summary: Mark an approved generated question as used in daily practice.
+      description: Only approved generated questions can enter daily practice.
+      parameters:
+        - $ref: "#/components/parameters/GeneratedQuestionId"
+      responses:
+        "200":
+          description: Generated question marked as used in daily practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedQuestionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   parameters:
     JobId:

@@ -351,7 +351,10 @@ def test_generated_questions_require_verifier_approval_before_practice() -> None
     )
     service.record_verification_report(failed_report)
 
-    assert repository.get_question(question.id).status == GeneratedQuestionStatus.REGENERATED_ONCE
+    assert (
+        repository.get_question(question.id).status
+        == GeneratedQuestionStatus.VERIFICATION_FAILED
+    )
     with pytest.raises(ValueError, match="verification"):
         service.approve_for_practice(question.id)
 
@@ -374,6 +377,63 @@ def test_generated_questions_require_verifier_approval_before_practice() -> None
         repository.get_question(regenerated.id).status
         == GeneratedQuestionStatus.NEEDS_HUMAN_REVIEW
     )
+
+
+def test_approved_generated_questions_can_be_marked_used_in_daily_practice() -> None:
+    now = datetime(2026, 5, 22, 9, 0, tzinfo=UTC)
+    repository = InMemoryGeneratedQuestionRepository()
+    service = QuestionGenerationService(repository)
+    question = repository.add_question(
+        GeneratedQuestion(
+            id="gq_approved",
+            user_id="user_001",
+            generation_request_id="request_001",
+            generation_attempt=1,
+            mode=GeneratedQuestionMode.LLM_TOOL_GENERATED,
+            status=GeneratedQuestionStatus.DRAFT_GENERATED,
+            stem="A generated question.",
+            answer="42",
+            explanation="A checked explanation.",
+            knowledge_point_links=(
+                GeneratedQuestionKnowledgeLink(
+                    knowledge_point_id="kp_due",
+                    content_weight=1.0,
+                    role=KnowledgeLinkRole.PRIMARY,
+                ),
+            ),
+            expected_error_traps=(),
+            grading_rubric="",
+            difficulty="medium",
+            question_type="open_response",
+            model="generator-model",
+            prompt_version="phase3-test",
+            public_kb_version="empty-v0",
+            personal_knowledge_build_id="pkb_001",
+            created_at=now,
+        )
+    )
+
+    with pytest.raises(ValueError, match="approved"):
+        service.mark_used_in_daily_practice(question.id)
+
+    service.start_verification(question.id)
+    service.record_verification_report(
+        QuestionVerificationReport(
+            id="qvr_passed",
+            question_id=question.id,
+            verifier_agent_id="verifier_001",
+            verdict=VerificationVerdict.PASSED,
+            verifier_answer="42",
+            issue_summary="No issue.",
+            failed_reason_type=None,
+            confidence=0.92,
+            created_at=now,
+        )
+    )
+    service.approve_for_practice(question.id)
+    used = service.mark_used_in_daily_practice(question.id)
+
+    assert used.status == GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE
 
 
 def test_hybrid_retrieval_request_is_a_phase4_contract_without_embedding_execution() -> None:

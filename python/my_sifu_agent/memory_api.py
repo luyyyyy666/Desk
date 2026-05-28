@@ -198,6 +198,13 @@ class Phase3MemoryApi:
         question = self.workspace.approve_generated_question_for_practice(question_id)
         return {"question": _generated_question_to_json(question)}
 
+    def mark_generated_question_used_in_daily_practice(
+        self,
+        question_id: str,
+    ) -> dict[str, Any]:
+        question = self.workspace.mark_generated_question_used_in_daily_practice(question_id)
+        return {"question": _generated_question_to_json(question)}
+
 
 def _required(payload: dict[str, Any], key: str) -> Any:
     try:

@@ -807,7 +807,7 @@ class QuestionGenerationService:
         elif question.generation_attempt <= 1:
             self.repository.update_question_status(
                 report.question_id,
-                GeneratedQuestionStatus.REGENERATED_ONCE,
+                GeneratedQuestionStatus.VERIFICATION_FAILED,
             )
         else:
             self.repository.update_question_status(
@@ -825,15 +825,24 @@ class QuestionGenerationService:
             GeneratedQuestionStatus.APPROVED_FOR_PRACTICE,
         )
 
+    def mark_used_in_daily_practice(self, question_id: str) -> GeneratedQuestion:
+        question = self.repository.get_question(question_id)
+        if question.status != GeneratedQuestionStatus.APPROVED_FOR_PRACTICE:
+            raise ValueError("generated question must be approved before daily practice use")
+        return self.repository.update_question_status(
+            question_id,
+            GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE,
+        )
+
     def start_regenerated_attempt(self, question_id: str) -> GeneratedQuestion:
         previous = self.repository.get_question(question_id)
-        if previous.status != GeneratedQuestionStatus.REGENERATED_ONCE:
+        if previous.status != GeneratedQuestionStatus.VERIFICATION_FAILED:
             raise ValueError("question is not eligible for a regenerated attempt")
         regenerated = replace(
             previous,
             id=f"{previous.id}_retry_2",
             generation_attempt=previous.generation_attempt + 1,
-            status=GeneratedQuestionStatus.DRAFT_GENERATED,
+            status=GeneratedQuestionStatus.REGENERATED_ONCE,
         )
         return self.repository.add_question(regenerated)
 
@@ -997,6 +1006,12 @@ class Phase3MemoryWorkspace:
 
     def approve_generated_question_for_practice(self, question_id: str) -> GeneratedQuestion:
         return self._question_generation_service().approve_for_practice(question_id)
+
+    def mark_generated_question_used_in_daily_practice(
+        self,
+        question_id: str,
+    ) -> GeneratedQuestion:
+        return self._question_generation_service().mark_used_in_daily_practice(question_id)
 
     def start_regenerated_question_attempt(self, question_id: str) -> GeneratedQuestion:
         return self._question_generation_service().start_regenerated_attempt(question_id)

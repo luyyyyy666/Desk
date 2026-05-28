@@ -594,6 +594,9 @@ def test_workspace_failed_verifier_path_regenerates_once_then_needs_human_review
             created_at=now,
         )
     )
+    assert workspace.get_generated_question(question.id).status == (
+        GeneratedQuestionStatus.VERIFICATION_FAILED
+    )
     regenerated = workspace.start_regenerated_question_attempt(question.id)
     workspace.start_question_verification(regenerated.id)
     workspace.record_question_verification(
@@ -613,3 +616,59 @@ def test_workspace_failed_verifier_path_regenerates_once_then_needs_human_review
     assert workspace.get_generated_question(regenerated.id).status == (
         GeneratedQuestionStatus.NEEDS_HUMAN_REVIEW
     )
+
+
+def test_workspace_marks_approved_generated_question_used_in_daily_practice() -> None:
+    now = datetime(2026, 5, 27, 10, 0, tzinfo=UTC)
+    workspace = Phase3MemoryWorkspace.empty()
+    question = workspace.submit_generated_question(
+        GeneratedQuestion(
+            id="gq_approved",
+            user_id="user_001",
+            generation_request_id="request_001",
+            generation_attempt=1,
+            mode=GeneratedQuestionMode.LLM_TOOL_GENERATED,
+            status=GeneratedQuestionStatus.DRAFT_GENERATED,
+            stem="Generated question.",
+            answer="A",
+            explanation="Verified explanation.",
+            knowledge_point_links=(
+                GeneratedQuestionKnowledgeLink(
+                    knowledge_point_id="kp_due",
+                    content_weight=1.0,
+                    role=KnowledgeLinkRole.PRIMARY,
+                ),
+            ),
+            expected_error_traps=(),
+            grading_rubric="",
+            difficulty="medium",
+            question_type="open_response",
+            model="generator-model",
+            prompt_version="phase3-test",
+            public_kb_version="empty-v0",
+            personal_knowledge_build_id="pkb_001",
+            created_at=now,
+        )
+    )
+
+    with pytest.raises(ValueError, match="approved"):
+        workspace.mark_generated_question_used_in_daily_practice(question.id)
+
+    workspace.start_question_verification(question.id)
+    workspace.record_question_verification(
+        QuestionVerificationReport(
+            id="report_passed",
+            question_id=question.id,
+            verifier_agent_id="verifier_001",
+            verdict=VerificationVerdict.PASSED,
+            verifier_answer="A",
+            issue_summary="No issue.",
+            failed_reason_type=None,
+            confidence=0.92,
+            created_at=now,
+        )
+    )
+    workspace.approve_generated_question_for_practice(question.id)
+    used = workspace.mark_generated_question_used_in_daily_practice(question.id)
+
+    assert used.status == GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE

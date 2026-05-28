@@ -389,3 +389,6 @@ def test_memory_api_enforces_verifier_gate_for_generated_questions() -> None:
     approved = api.approve_generated_question_for_practice("gq_001")
 
     assert approved["question"]["status"] == GeneratedQuestionStatus.APPROVED_FOR_PRACTICE.value
+    used = api.mark_generated_question_used_in_daily_practice("gq_001")
+
+    assert used["question"]["status"] == GeneratedQuestionStatus.USED_IN_DAILY_PRACTICE.value
