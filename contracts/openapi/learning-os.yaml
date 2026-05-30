@@ -448,6 +448,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmbeddingProviderStatusResponse"
+  /rag/ingest:
+    post:
+      summary: Ingest a plain text knowledge source for Phase 4 RAG.
+      description: First implementation supports explicit plain text only; PDF, Word, and textbook-specific parsers are added later when their formats are known.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeSourceIngestRequest"
+      responses:
+        "201":
+          description: Knowledge source chunked into stable text chunks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSourceIngestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/embeddings/jobs:
     post:
       summary: Create a queued Phase 4 embedding job.
@@ -816,6 +835,80 @@ components:
               oneOf:
                 - type: string
                 - type: "null"
+    KnowledgeSourceIngestRequest:
+      type: object
+      required: [sourceId, title, knowledgeLayer, sourceFormat, text, metadata, createdAt]
+      properties:
+        sourceId:
+          type: string
+        title:
+          type: string
+        knowledgeLayer:
+          type: string
+          enum: [curriculum, textbook, question, pedagogy, rubric, institution]
+        sourceFormat:
+          type: string
+          enum: [plain_text]
+        text:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    KnowledgeSourceIngestResponse:
+      type: object
+      required: [source, chunks, embeddingSources]
+      properties:
+        source:
+          type: object
+          required: [id, title, knowledgeLayer, contentHash, metadata, chunkCount, createdAt]
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+            knowledgeLayer:
+              type: string
+            contentHash:
+              type: string
+            metadata:
+              type: object
+              additionalProperties: true
+            chunkCount:
+              type: integer
+            createdAt:
+              type: string
+              format: date-time
+        chunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeChunk"
+        embeddingSources:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmbeddingJobSource"
+    KnowledgeChunk:
+      type: object
+      required: [id, sourceId, ordinal, text, contentHash, metadata, createdAt]
+      properties:
+        id:
+          type: string
+        sourceId:
+          type: string
+        ordinal:
+          type: integer
+        text:
+          type: string
+        contentHash:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
     EmbeddingJobCreateRequest:
       type: object
       required: [id, sources, createdAt]

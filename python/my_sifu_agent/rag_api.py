@@ -11,6 +11,10 @@ from my_sifu_agent.rag import (
     EmbeddingSourceType,
     EmbeddingVectorRecord,
     InMemoryEmbeddingIndex,
+    InMemoryKnowledgeSourceRepository,
+    KnowledgeChunk,
+    KnowledgeLayer,
+    KnowledgeSource,
     VectorUpsertStatus,
 )
 
@@ -20,6 +24,9 @@ class Phase4RagApi:
     provider_config: EmbeddingProviderConfig
     embedding_gateway: Any | None = None
     embedding_index: InMemoryEmbeddingIndex = field(default_factory=InMemoryEmbeddingIndex)
+    knowledge_source_repository: InMemoryKnowledgeSourceRepository = field(
+        default_factory=InMemoryKnowledgeSourceRepository
+    )
     _embedding_jobs: dict[str, EmbeddingJob] = field(default_factory=dict)
 
     @classmethod
@@ -31,6 +38,7 @@ class Phase4RagApi:
         api_key_env_var: str | None,
         embedding_gateway: Any | None = None,
         embedding_index: InMemoryEmbeddingIndex | None = None,
+        knowledge_source_repository: InMemoryKnowledgeSourceRepository | None = None,
     ) -> Phase4RagApi:
         return cls(
             provider_config=EmbeddingProviderConfig(
@@ -41,6 +49,9 @@ class Phase4RagApi:
             ),
             embedding_gateway=embedding_gateway,
             embedding_index=embedding_index or InMemoryEmbeddingIndex(),
+            knowledge_source_repository=(
+                knowledge_source_repository or InMemoryKnowledgeSourceRepository()
+            ),
         )
 
     def get_embedding_provider_status(self) -> dict[str, Any]:
@@ -129,6 +140,42 @@ class Phase4RagApi:
             }
         }
 
+    def ingest_plain_text(self, payload: dict[str, Any]) -> dict[str, Any]:
+        source_format = _required(payload, "sourceFormat")
+        if source_format != "plain_text":
+            raise ValueError("phase 4 ingestion currently supports plain_text only")
+        source = self.knowledge_source_repository.ingest_plain_text(
+            source_id=_required(payload, "sourceId"),
+            title=_required(payload, "title"),
+            knowledge_layer=KnowledgeLayer(_required(payload, "knowledgeLayer")),
+            text=_required(payload, "text"),
+            metadata=dict(payload.get("metadata", {})),
+            created_at=_parse_datetime(_required(payload, "createdAt")),
+        )
+        chunks = self.knowledge_source_repository.list_chunks(source.id)
+        embedding_sources = [
+            EmbeddingJobSource(
+                source_type=EmbeddingSourceType.PUBLIC_KNOWLEDGE_CHUNK,
+                source_id=chunk.id,
+                content_hash=chunk.content_hash,
+                text=chunk.text,
+                metadata={
+                    **chunk.metadata,
+                    "knowledgeLayer": source.knowledge_layer.value,
+                    "sourceTitle": source.title,
+                },
+            )
+            for chunk in chunks
+        ]
+        return {
+            "source": _knowledge_source_to_json(source),
+            "chunks": [_knowledge_chunk_to_json(chunk) for chunk in chunks],
+            "embeddingSources": [
+                _embedding_job_source_to_json(embedding_source)
+                for embedding_source in embedding_sources
+            ],
+        }
+
     def _get_embedding_job(self, job_id: str) -> EmbeddingJob:
         try:
             return self._embedding_jobs[job_id]
@@ -186,4 +233,28 @@ def _embedding_job_source_to_json(source: EmbeddingJobSource) -> dict[str, Any]:
         "contentHash": source.content_hash,
         "text": source.text,
         "metadata": source.metadata,
+    }
+
+
+def _knowledge_source_to_json(source: KnowledgeSource) -> dict[str, Any]:
+    return {
+        "id": source.id,
+        "title": source.title,
+        "knowledgeLayer": source.knowledge_layer.value,
+        "contentHash": source.content_hash,
+        "metadata": source.metadata,
+        "chunkCount": source.chunk_count,
+        "createdAt": source.created_at.isoformat(),
+    }
+
+
+def _knowledge_chunk_to_json(chunk: KnowledgeChunk) -> dict[str, Any]:
+    return {
+        "id": chunk.id,
+        "sourceId": chunk.source_id,
+        "ordinal": chunk.ordinal,
+        "text": chunk.text,
+        "contentHash": chunk.content_hash,
+        "metadata": chunk.metadata,
+        "createdAt": chunk.created_at.isoformat(),
     }

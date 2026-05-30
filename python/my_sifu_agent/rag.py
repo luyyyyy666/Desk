@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
+from hashlib import sha256
 from typing import Any
 
 
@@ -40,6 +41,28 @@ class RetrievalTrustTier(StrEnum):
     VERIFIED = "verified"
     GENERATED = "generated"
     USER_EVIDENCE = "user_evidence"
+
+
+@dataclass(frozen=True)
+class KnowledgeSource:
+    id: str
+    title: str
+    knowledge_layer: KnowledgeLayer
+    content_hash: str
+    metadata: dict[str, Any]
+    chunk_count: int
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class KnowledgeChunk:
+    id: str
+    source_id: str
+    ordinal: int
+    text: str
+    content_hash: str
+    metadata: dict[str, Any]
+    created_at: datetime
 
 
 @dataclass(frozen=True)
@@ -183,6 +206,56 @@ class InMemoryEmbeddingIndex:
         )
 
 
+@dataclass
+class InMemoryKnowledgeSourceRepository:
+    _sources: dict[str, KnowledgeSource] = field(default_factory=dict)
+    _chunks: dict[str, tuple[KnowledgeChunk, ...]] = field(default_factory=dict)
+
+    def ingest_plain_text(
+        self,
+        *,
+        source_id: str,
+        title: str,
+        knowledge_layer: KnowledgeLayer,
+        text: str,
+        metadata: dict[str, Any],
+        created_at: datetime,
+    ) -> KnowledgeSource:
+        content_hash = _content_hash(text)
+        existing = self._sources.get(source_id)
+        if existing is not None and existing.content_hash == content_hash:
+            return existing
+
+        chunk_texts = _split_plain_text_chunks(text)
+        chunks = tuple(
+            KnowledgeChunk(
+                id=f"{source_id}:chunk_{index}",
+                source_id=source_id,
+                ordinal=index,
+                text=chunk_text,
+                content_hash=_content_hash(chunk_text),
+                metadata=dict(metadata),
+                created_at=created_at,
+            )
+            for index, chunk_text in enumerate(chunk_texts)
+        )
+        source = KnowledgeSource(
+            id=source_id,
+            title=title,
+            knowledge_layer=knowledge_layer,
+            content_hash=content_hash,
+            metadata=dict(metadata),
+            chunk_count=len(chunks),
+            created_at=created_at,
+        )
+        self._sources[source_id] = source
+        self._chunks[source_id] = chunks
+        return source
+
+    def list_chunks(self, source_id: str) -> list[KnowledgeChunk]:
+        return list(self._chunks.get(source_id, ()))
+
+
 @dataclass(frozen=True)
 class RetrievalResult:
     source_type: EmbeddingSourceType
@@ -195,3 +268,15 @@ class RetrievalResult:
     final_score: float
     trust_tier: RetrievalTrustTier
     metadata: dict[str, Any]
+
+
+def _content_hash(text: str) -> str:
+    return f"sha256:{sha256(text.encode('utf-8')).hexdigest()}"
+
+
+def _split_plain_text_chunks(text: str) -> list[str]:
+    chunks = [chunk.strip() for chunk in text.split("\n\n") if chunk.strip()]
+    if chunks:
+        return chunks
+    stripped = text.strip()
+    return [stripped] if stripped else []
