@@ -220,6 +220,18 @@ export const publicKnowledgeStatus = {
   importMode: "schema-only",
 } as const;
 
+export const ragPipelineStatus = {
+  provider: "New API / OpenAI-compatible",
+  keyPolicy: "后端网关持有 provider key",
+  ingestFormat: "plain_text ingest",
+  embeddingJobStatus: "Embedding Job",
+  searchStatus: "向量检索",
+  sampleQuery: "一次函数",
+  chunks: 2,
+  vectors: 2,
+  trustScore: 0.9,
+} as const;
+
 export const mistakeGroups = [
   {
     knowledge: "实际问题建模",

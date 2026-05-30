@@ -57,6 +57,18 @@ describe("LearningDesktop", () => {
     expect(screen.getByText("仅预留 schema / import 入口")).toBeInTheDocument();
   });
 
+  it("shows phase 4 rag ingestion embedding and search status in the knowledge window", () => {
+    render(<LearningDesktop defaultWindow="knowledge" />);
+
+    expect(screen.getByText("Phase 4 RAG 管线")).toBeInTheDocument();
+    expect(screen.getByText("plain_text ingest")).toBeInTheDocument();
+    expect(screen.getByText("Embedding Job")).toBeInTheDocument();
+    expect(screen.getByText("向量检索")).toBeInTheDocument();
+    expect(screen.getByText("New API / OpenAI-compatible")).toBeInTheDocument();
+    expect(screen.getByText("后端网关持有 provider key")).toBeInTheDocument();
+    expect(screen.getByText("查询样例：一次函数")).toBeInTheDocument();
+  });
+
   it("can close the active floating window", async () => {
     const user = userEvent.setup();
     render(<LearningDesktop defaultWindow="errors" />);

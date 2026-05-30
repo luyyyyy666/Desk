@@ -5,6 +5,7 @@ import {
   knowledgePoints,
   mockQuestions,
   publicKnowledgeStatus,
+  ragPipelineStatus,
   reportMetrics,
 } from "@/lib/mock-data";
 
@@ -143,6 +144,36 @@ export function KnowledgeWindow() {
           <p className="text-sm font-semibold leading-6">
             下方为静态个人学习画像示意。公共知识库内容保持空缺，后续由录入或导入流程填充标准知识点。
           </p>
+        </div>
+        <div className="rounded-md border-2 border-ink bg-paper-100 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <Badge tone="orange">Phase 4 RAG 管线</Badge>
+            <span className="rounded border border-ink bg-paper-50 px-2 py-1 text-xs font-black">
+              {ragPipelineStatus.provider}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-sm font-black">
+            {[
+              ragPipelineStatus.ingestFormat,
+              ragPipelineStatus.embeddingJobStatus,
+              ragPipelineStatus.searchStatus,
+            ].map((item) => (
+              <div key={item} className="rounded border border-ink bg-paper-50 p-3">
+                {item}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 grid grid-cols-[1fr_150px] gap-3 text-xs font-bold">
+            <div className="rounded border border-ink bg-[#e8d099] p-3">
+              <p>{ragPipelineStatus.keyPolicy}</p>
+              <p className="mt-1 text-ink/70">查询样例：{ragPipelineStatus.sampleQuery}</p>
+            </div>
+            <div className="rounded border border-ink bg-paper-50 p-3">
+              <p>chunks：{ragPipelineStatus.chunks}</p>
+              <p>vectors：{ragPipelineStatus.vectors}</p>
+              <p>trust：{ragPipelineStatus.trustScore}</p>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {knowledgePoints.map((point) => (
