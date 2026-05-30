@@ -99,9 +99,13 @@ def test_learning_os_openapi_contract_declares_phase4_rag_schemas() -> None:
         "EmbeddingJobSource:",
         "EmbeddingSearchPlanRequest:",
         "EmbeddingSearchPlanResponse:",
+        "EmbeddingSearchResponse:",
+        "RetrievalResult:",
     ]:
         assert schema in content
 
     assert "Raw API keys are never returned" in content
     assert "executesVectorSearch" in content
     assert "providerCallsOwnedByBackend" in content
+    assert "trustScore" in content
+    assert "sourceId" in content

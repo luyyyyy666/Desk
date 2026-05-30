@@ -502,8 +502,8 @@ paths:
           $ref: "#/components/responses/NotFound"
   /api/knowledge/embedding-search:
     post:
-      summary: Plan a Phase 4 embedding search request.
-      description: The first contract validates the intended search pipeline; vector execution is introduced behind the backend after indexing is available.
+      summary: Execute a Phase 4 embedding search request.
+      description: The backend owns query embedding, vector search, source scoring, and future reranking. Provider keys and routing stay outside the frontend.
       requestBody:
         required: true
         content:
@@ -512,11 +512,11 @@ paths:
               $ref: "#/components/schemas/EmbeddingSearchPlanRequest"
       responses:
         "200":
-          description: Embedding search plan.
+          description: Embedding search results with source ids and trust scores.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmbeddingSearchPlanResponse"
+                $ref: "#/components/schemas/EmbeddingSearchResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
 components:
@@ -1051,6 +1051,59 @@ components:
             executesVectorSearch:
               type: boolean
               example: false
+    EmbeddingSearchResponse:
+      type: object
+      required: [query, results, executesVectorSearch, usage]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetrievalResult"
+        executesVectorSearch:
+          type: boolean
+          example: true
+        usage:
+          type: object
+          additionalProperties: true
+    RetrievalResult:
+      type: object
+      required:
+        - sourceType
+        - sourceId
+        - chunkId
+        - knowledgeLayer
+        - text
+        - similarityScore
+        - trustScore
+        - finalScore
+        - trustTier
+        - metadata
+      properties:
+        sourceType:
+          type: string
+        sourceId:
+          type: string
+        chunkId:
+          type: string
+        knowledgeLayer:
+          type: string
+          enum: [curriculum, textbook, question, pedagogy, rubric, institution]
+        text:
+          type: string
+        similarityScore:
+          type: number
+        trustScore:
+          type: number
+        finalScore:
+          type: number
+        trustTier:
+          type: string
+          enum: [curated, verified, generated, user_evidence]
+        metadata:
+          type: object
+          additionalProperties: true
     PublicKnowledgeStatus:
       type: object
       required: [knowledgePoints, tags, edges, isEmpty]

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from hashlib import sha256
+from math import sqrt
 from typing import Any
 
 
@@ -193,6 +194,40 @@ class InMemoryEmbeddingIndex:
     def list_records(self) -> list[EmbeddingVectorRecord]:
         return list(self._records.values())
 
+    def search(
+        self,
+        *,
+        query_vector: tuple[float, ...],
+        filters: dict[str, Any],
+        limit: int,
+    ) -> list[RetrievalResult]:
+        results = []
+        for record in self._records.values():
+            if not _metadata_matches(record.metadata, filters):
+                continue
+            similarity_score = _cosine_similarity(query_vector, record.vector)
+            trust_score = _trust_score_for(record)
+            final_score = round((similarity_score + trust_score) / 2, 4)
+            knowledge_layer = KnowledgeLayer(
+                record.metadata.get("knowledgeLayer", KnowledgeLayer.QUESTION.value)
+            )
+            results.append(
+                RetrievalResult(
+                    source_type=record.source_type,
+                    source_id=record.source_id,
+                    chunk_id=record.chunk_id,
+                    knowledge_layer=knowledge_layer,
+                    text=str(record.metadata.get("text", "")),
+                    similarity_score=similarity_score,
+                    trust_score=trust_score,
+                    final_score=final_score,
+                    trust_tier=_trust_tier_for(record),
+                    metadata=record.metadata,
+                )
+            )
+        results.sort(key=lambda result: (-result.final_score, result.source_id))
+        return results[:limit]
+
     def _record_key(
         self,
         record: EmbeddingVectorRecord,
@@ -280,3 +315,38 @@ def _split_plain_text_chunks(text: str) -> list[str]:
         return chunks
     stripped = text.strip()
     return [stripped] if stripped else []
+
+
+def _metadata_matches(metadata: dict[str, Any], filters: dict[str, Any]) -> bool:
+    return all(metadata.get(key) == value for key, value in filters.items())
+
+
+def _cosine_similarity(left: tuple[float, ...], right: tuple[float, ...]) -> float:
+    if len(left) != len(right) or not left or not right:
+        return 0.0
+    dot_product = sum(a * b for a, b in zip(left, right, strict=True))
+    left_norm = sqrt(sum(value * value for value in left))
+    right_norm = sqrt(sum(value * value for value in right))
+    if left_norm == 0 or right_norm == 0:
+        return 0.0
+    return round(dot_product / (left_norm * right_norm), 4)
+
+
+def _trust_tier_for(record: EmbeddingVectorRecord) -> RetrievalTrustTier:
+    if record.source_type == EmbeddingSourceType.PUBLIC_KNOWLEDGE_CHUNK:
+        return RetrievalTrustTier.CURATED
+    if record.source_type in {
+        EmbeddingSourceType.PUBLIC_QUESTION,
+        EmbeddingSourceType.PUBLIC_QUESTION_TEMPLATE,
+    }:
+        return RetrievalTrustTier.VERIFIED
+    return RetrievalTrustTier.USER_EVIDENCE
+
+
+def _trust_score_for(record: EmbeddingVectorRecord) -> float:
+    trust_tier = _trust_tier_for(record)
+    if trust_tier == RetrievalTrustTier.CURATED:
+        return 0.9
+    if trust_tier == RetrievalTrustTier.VERIFIED:
+        return 0.82
+    return 0.72

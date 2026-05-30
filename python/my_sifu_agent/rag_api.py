@@ -15,6 +15,7 @@ from my_sifu_agent.rag import (
     KnowledgeChunk,
     KnowledgeLayer,
     KnowledgeSource,
+    RetrievalResult,
     VectorUpsertStatus,
 )
 
@@ -140,6 +141,30 @@ class Phase4RagApi:
             }
         }
 
+    def embedding_search(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if self.embedding_gateway is None:
+            raise ValueError("embedding gateway is not configured")
+        query = _required(payload, "query")
+        gateway_result = self.embedding_gateway.embed_texts([query])
+        if not gateway_result.embeddings:
+            return {
+                "query": query,
+                "results": [],
+                "executesVectorSearch": True,
+                "usage": gateway_result.usage,
+            }
+        results = self.embedding_index.search(
+            query_vector=gateway_result.embeddings[0].vector,
+            filters=dict(payload.get("filters", {})),
+            limit=int(payload.get("limit", 10)),
+        )
+        return {
+            "query": query,
+            "results": [_retrieval_result_to_json(result) for result in results],
+            "executesVectorSearch": True,
+            "usage": gateway_result.usage,
+        }
+
     def ingest_plain_text(self, payload: dict[str, Any]) -> dict[str, Any]:
         source_format = _required(payload, "sourceFormat")
         if source_format != "plain_text":
@@ -257,4 +282,19 @@ def _knowledge_chunk_to_json(chunk: KnowledgeChunk) -> dict[str, Any]:
         "contentHash": chunk.content_hash,
         "metadata": chunk.metadata,
         "createdAt": chunk.created_at.isoformat(),
+    }
+
+
+def _retrieval_result_to_json(result: RetrievalResult) -> dict[str, Any]:
+    return {
+        "sourceType": result.source_type.value,
+        "sourceId": result.source_id,
+        "chunkId": result.chunk_id,
+        "knowledgeLayer": result.knowledge_layer.value,
+        "text": result.text,
+        "similarityScore": result.similarity_score,
+        "trustScore": result.trust_score,
+        "finalScore": result.final_score,
+        "trustTier": result.trust_tier.value,
+        "metadata": result.metadata,
     }
