@@ -67,3 +67,36 @@ def test_learning_os_openapi_contract_declares_phase3_memory_schemas() -> None:
     assert "classroom" not in content.lower()
     assert "school" not in content.lower()
     assert "tenant" not in content.lower()
+
+
+def test_learning_os_openapi_contract_declares_phase4_rag_paths() -> None:
+    content = (ROOT / "contracts" / "openapi" / "learning-os.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    for path in [
+        "/api/embeddings/provider-status:",
+        "/api/embeddings/jobs:",
+        "/api/embeddings/jobs/{job_id}:",
+        "/api/knowledge/embedding-search:",
+    ]:
+        assert path in content
+
+
+def test_learning_os_openapi_contract_declares_phase4_rag_schemas() -> None:
+    content = (ROOT / "contracts" / "openapi" / "learning-os.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    for schema in [
+        "EmbeddingProviderStatusResponse:",
+        "EmbeddingJobCreateRequest:",
+        "EmbeddingJobResponse:",
+        "EmbeddingJobSource:",
+        "EmbeddingSearchPlanRequest:",
+        "EmbeddingSearchPlanResponse:",
+    ]:
+        assert schema in content
+
+    assert "Raw API keys are never returned" in content
+    assert "executesVectorSearch" in content

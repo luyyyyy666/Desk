@@ -437,6 +437,69 @@ paths:
                 $ref: "#/components/schemas/GeneratedQuestionResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/embeddings/provider-status:
+    get:
+      summary: Read Phase 4 embedding provider status.
+      description: Raw API keys are never returned; the frontend only receives non-sensitive New API or OpenAI-compatible provider configuration status.
+      responses:
+        "200":
+          description: Non-sensitive embedding provider status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderStatusResponse"
+  /api/embeddings/jobs:
+    post:
+      summary: Create a queued Phase 4 embedding job.
+      description: The backend owns provider calls; this contract queues work and does not expose provider credentials to the frontend.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingJobCreateRequest"
+      responses:
+        "201":
+          description: Embedding job queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingJobResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/embeddings/jobs/{job_id}:
+    get:
+      summary: Read a Phase 4 embedding job by id.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Embedding job status and source summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingJobResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/knowledge/embedding-search:
+    post:
+      summary: Plan a Phase 4 embedding search request.
+      description: The first contract validates the intended search pipeline; vector execution is introduced behind the backend after indexing is available.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingSearchPlanRequest"
+      responses:
+        "200":
+          description: Embedding search plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingSearchPlanResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   parameters:
     JobId:
@@ -727,6 +790,174 @@ components:
         apiKeyHint:
           type: string
           enum: [configured, missing]
+    EmbeddingProviderStatusResponse:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: object
+          required:
+            - providerId
+            - baseUrlConfigured
+            - modelConfigured
+            - apiKeyConfigured
+            - apiKeyEnvVar
+          properties:
+            providerId:
+              type: string
+              example: new_api
+            baseUrlConfigured:
+              type: boolean
+            modelConfigured:
+              type: boolean
+            apiKeyConfigured:
+              type: boolean
+            apiKeyEnvVar:
+              oneOf:
+                - type: string
+                - type: "null"
+    EmbeddingJobCreateRequest:
+      type: object
+      required: [id, sources, createdAt]
+      properties:
+        id:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmbeddingJobSource"
+        createdAt:
+          type: string
+          format: date-time
+    EmbeddingJobSource:
+      type: object
+      required: [sourceType, sourceId, contentHash, text, metadata]
+      properties:
+        sourceType:
+          type: string
+          enum:
+            - public_knowledge_chunk
+            - public_question_template
+            - public_question
+            - wrong_question_analysis
+        sourceId:
+          type: string
+        contentHash:
+          type: string
+        text:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    EmbeddingJobResponse:
+      type: object
+      required: [job]
+      properties:
+        job:
+          type: object
+          required:
+            - id
+            - providerId
+            - embeddingModel
+            - status
+            - sources
+            - sourceTypes
+            - totalTexts
+            - embeddedTexts
+            - skippedTexts
+            - failedTexts
+            - createdAt
+            - callsProvider
+          properties:
+            id:
+              type: string
+            providerId:
+              type: string
+            embeddingModel:
+              type: string
+            status:
+              type: string
+              enum: [queued, running, completed, partial_failed, failed]
+            sources:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmbeddingJobSource"
+            sourceTypes:
+              type: array
+              items:
+                type: string
+            totalTexts:
+              type: integer
+            embeddedTexts:
+              type: integer
+            skippedTexts:
+              type: integer
+            failedTexts:
+              type: integer
+            failureSummary:
+              oneOf:
+                - type: string
+                - type: "null"
+            createdAt:
+              type: string
+              format: date-time
+            startedAt:
+              oneOf:
+                - type: string
+                  format: date-time
+                - type: "null"
+            completedAt:
+              oneOf:
+                - type: string
+                  format: date-time
+                - type: "null"
+            callsProvider:
+              type: boolean
+              example: false
+    EmbeddingSearchPlanRequest:
+      type: object
+      required: [query, filters, limit, rerank]
+      properties:
+        query:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        limit:
+          type: integer
+          minimum: 1
+        rerank:
+          type: boolean
+    EmbeddingSearchPlanResponse:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          type: object
+          required:
+            - query
+            - filters
+            - limit
+            - rerank
+            - pipeline
+            - executesVectorSearch
+          properties:
+            query:
+              type: string
+            filters:
+              type: object
+              additionalProperties: true
+            limit:
+              type: integer
+            rerank:
+              type: boolean
+            pipeline:
+              type: array
+              items:
+                type: string
+            executesVectorSearch:
+              type: boolean
+              example: false
     PublicKnowledgeStatus:
       type: object
       required: [knowledgePoints, tags, edges, isEmpty]
