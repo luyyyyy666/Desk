@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from my_sifu_agent.rag import InMemoryKnowledgeSourceRepository, KnowledgeLayer
+from my_sifu_agent.rag import AccessScope, InMemoryKnowledgeSourceRepository, KnowledgeLayer
 from my_sifu_agent.rag_api import Phase4RagApi
 
 
@@ -79,6 +79,7 @@ def test_rag_api_ingests_plain_text_source_and_returns_embedding_sources() -> No
     assert response["embeddingSources"][0]["sourceType"] == "public_knowledge_chunk"
     assert response["embeddingSources"][0]["sourceId"] == "source_curriculum_001:chunk_0"
     assert response["embeddingSources"][0]["text"] == "理解一次函数。"
+    assert response["embeddingSources"][0]["metadata"]["accessScope"] == AccessScope.PUBLIC.value
 
 
 def test_rag_api_rejects_unknown_ingest_format() -> None:

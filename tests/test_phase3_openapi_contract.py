@@ -112,4 +112,5 @@ def test_learning_os_openapi_contract_declares_phase4_rag_schemas() -> None:
     assert "providerCallsOwnedByBackend" in content
     assert "trustScore" in content
     assert "sourceId" in content
+    assert "accessScope" in content
     assert "directDatabaseAccess" in content

@@ -1,5 +1,6 @@
 from my_sifu_agent.embedding_gateway import EmbeddingGatewayResult, TextEmbedding
 from my_sifu_agent.rag import (
+    AccessScope,
     EmbeddingSourceType,
     EmbeddingVectorRecord,
     InMemoryEmbeddingIndex,
@@ -38,6 +39,7 @@ def test_embedding_index_search_combines_metadata_filter_and_vector_similarity()
                 "subject": "math",
                 "gradeBand": "middle_school",
                 "knowledgeLayer": "curriculum",
+                "accessScope": AccessScope.PUBLIC.value,
                 "text": "一次函数的图像是一条直线。",
             },
         )
@@ -88,6 +90,52 @@ def test_embedding_index_search_combines_metadata_filter_and_vector_similarity()
     assert results[0].text == "一次函数的图像是一条直线。"
 
 
+def test_embedding_index_search_enforces_access_scope_filter() -> None:
+    index = InMemoryEmbeddingIndex()
+    index.upsert(
+        EmbeddingVectorRecord(
+            id="vec_public",
+            source_type=EmbeddingSourceType.PUBLIC_KNOWLEDGE_CHUNK,
+            source_id="public_curriculum:chunk_0",
+            chunk_id="public_curriculum:chunk_0",
+            embedding_model="text-embedding-v1",
+            content_hash="sha256:public",
+            vector=(1.0, 0.0),
+            metadata={
+                "subject": "math",
+                "knowledgeLayer": "curriculum",
+                "accessScope": AccessScope.PUBLIC.value,
+            },
+        )
+    )
+    index.upsert(
+        EmbeddingVectorRecord(
+            id="vec_personal",
+            source_type=EmbeddingSourceType.WRONG_QUESTION_ANALYSIS,
+            source_id="wq_001",
+            chunk_id="wq_001:0",
+            embedding_model="text-embedding-v1",
+            content_hash="sha256:personal",
+            vector=(1.0, 0.0),
+            metadata={
+                "subject": "math",
+                "knowledgeLayer": "question",
+                "accessScope": AccessScope.PERSONAL.value,
+                "userId": "user_001",
+            },
+        )
+    )
+
+    results = index.search(
+        query_vector=(1.0, 0.0),
+        filters={"subject": "math", "accessScope": AccessScope.PUBLIC.value},
+        limit=5,
+    )
+
+    assert [result.source_id for result in results] == ["public_curriculum:chunk_0"]
+    assert results[0].metadata["accessScope"] == AccessScope.PUBLIC.value
+
+
 def test_rag_api_executes_embedding_search_with_backend_gateway() -> None:
     gateway = FakeQueryEmbeddingGateway(vector=(1.0, 0.0))
     index = InMemoryEmbeddingIndex()
@@ -104,6 +152,7 @@ def test_rag_api_executes_embedding_search_with_backend_gateway() -> None:
                 "subject": "math",
                 "gradeBand": "middle_school",
                 "knowledgeLayer": "curriculum",
+                "accessScope": AccessScope.PUBLIC.value,
                 "text": "一次函数的图像是一条直线。",
             },
         )
@@ -131,3 +180,61 @@ def test_rag_api_executes_embedding_search_with_backend_gateway() -> None:
     assert response["results"][0]["finalScore"] == 0.95
     assert response["executesVectorSearch"] is True
     assert gateway.calls == [["一次函数"]]
+
+
+def test_rag_api_embedding_search_defaults_to_public_access_scope() -> None:
+    gateway = FakeQueryEmbeddingGateway(vector=(1.0, 0.0))
+    index = InMemoryEmbeddingIndex()
+    index.upsert(
+        EmbeddingVectorRecord(
+            id="vec_public",
+            source_type=EmbeddingSourceType.PUBLIC_KNOWLEDGE_CHUNK,
+            source_id="source_curriculum_001:chunk_0",
+            chunk_id="source_curriculum_001:chunk_0",
+            embedding_model="text-embedding-v1",
+            content_hash="sha256:linear",
+            vector=(1.0, 0.0),
+            metadata={
+                "subject": "math",
+                "knowledgeLayer": "curriculum",
+                "accessScope": AccessScope.PUBLIC.value,
+            },
+        )
+    )
+    index.upsert(
+        EmbeddingVectorRecord(
+            id="vec_personal",
+            source_type=EmbeddingSourceType.WRONG_QUESTION_ANALYSIS,
+            source_id="wq_001",
+            chunk_id="wq_001:0",
+            embedding_model="text-embedding-v1",
+            content_hash="sha256:wrong",
+            vector=(1.0, 0.0),
+            metadata={
+                "subject": "math",
+                "knowledgeLayer": "question",
+                "accessScope": AccessScope.PERSONAL.value,
+                "userId": "user_001",
+            },
+        )
+    )
+    api = Phase4RagApi.default_for_new_api(
+        base_url="http://127.0.0.1:3000",
+        model="text-embedding-v1",
+        api_key_env_var=None,
+        embedding_gateway=gateway,
+        embedding_index=index,
+    )
+
+    response = api.embedding_search(
+        {
+            "query": "一次函数",
+            "filters": {"subject": "math"},
+            "limit": 3,
+            "rerank": True,
+        }
+    )
+
+    assert [result["sourceId"] for result in response["results"]] == [
+        "source_curriculum_001:chunk_0"
+    ]

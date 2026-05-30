@@ -101,6 +101,7 @@ async fn postgres_repository_persists_and_searches_phase4_embedding_vectors() {
             metadata: serde_json::json!({
                 "subject": "math",
                 "knowledgeLayer": "curriculum",
+                "accessScope": "public",
                 "text": "一次函数的图像是一条直线。"
             }),
         })
@@ -118,7 +119,8 @@ async fn postgres_repository_persists_and_searches_phase4_embedding_vectors() {
             embedding: test_embedding(1.0),
             metadata: serde_json::json!({
                 "subject": "english",
-                "knowledgeLayer": "curriculum"
+                "knowledgeLayer": "curriculum",
+                "accessScope": "public"
             }),
         })
         .await
@@ -130,6 +132,7 @@ async fn postgres_repository_persists_and_searches_phase4_embedding_vectors() {
             RagSearchFilters {
                 subject: Some("math".to_string()),
                 knowledge_layer: Some("curriculum".to_string()),
+                access_scope: Some("public".to_string()),
             },
             5,
         )
@@ -153,6 +156,77 @@ async fn postgres_repository_persists_and_searches_phase4_embedding_vectors() {
     assert_eq!(persisted.len(), 1);
     assert_eq!(persisted[0].source_id, "source_curriculum_001:chunk_0");
     assert_eq!(persisted[0].final_score, results[0].final_score);
+}
+
+#[tokio::test]
+async fn postgres_repository_filters_phase4_vectors_by_access_scope() {
+    let Some(config) = DatabaseConfig::from_env_with(|key| std::env::var(key).ok()) else {
+        return;
+    };
+
+    let repository = PostgresLearningRepository::connect(&config).await.unwrap();
+    repository.run_migrations().await.unwrap();
+
+    repository
+        .upsert_embedding_vector(PostgresEmbeddingVectorRecord {
+            id: "vec_phase4_public_access".to_string(),
+            source_type: "public_knowledge_chunk".to_string(),
+            source_id: "source_public_access:chunk_0".to_string(),
+            chunk_id: "source_public_access:chunk_0".to_string(),
+            embedding_model: "text-embedding-v1".to_string(),
+            content_hash: "sha256:public-access".to_string(),
+            embedding: test_embedding(1.0),
+            metadata: serde_json::json!({
+                "subject": "math",
+                "knowledgeLayer": "curriculum",
+                "accessScope": "public"
+            }),
+        })
+        .await
+        .unwrap();
+
+    repository
+        .upsert_embedding_vector(PostgresEmbeddingVectorRecord {
+            id: "vec_phase4_personal_access".to_string(),
+            source_type: "wrong_question_analysis".to_string(),
+            source_id: "wq_personal_access".to_string(),
+            chunk_id: "wq_personal_access:0".to_string(),
+            embedding_model: "text-embedding-v1".to_string(),
+            content_hash: "sha256:personal-access".to_string(),
+            embedding: test_embedding(1.0),
+            metadata: serde_json::json!({
+                "subject": "math",
+                "knowledgeLayer": "question",
+                "accessScope": "personal",
+                "userId": "user_001"
+            }),
+        })
+        .await
+        .unwrap();
+
+    let results = repository
+        .search_embedding_vectors(
+            &test_embedding(1.0),
+            RagSearchFilters {
+                subject: Some("math".to_string()),
+                knowledge_layer: None,
+                access_scope: Some("public".to_string()),
+            },
+            5,
+        )
+        .await
+        .unwrap();
+
+    assert!(
+        results
+            .iter()
+            .any(|result| result.source_id == "source_public_access:chunk_0")
+    );
+    assert!(
+        !results
+            .iter()
+            .any(|result| result.source_id == "wq_personal_access")
+    );
 }
 
 fn test_embedding(first_value: f32) -> Vec<f32> {

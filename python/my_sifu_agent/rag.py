@@ -17,6 +17,12 @@ class KnowledgeLayer(StrEnum):
     INSTITUTION = "institution"
 
 
+class AccessScope(StrEnum):
+    PUBLIC = "public"
+    PERSONAL = "personal"
+    SYSTEM = "system"
+
+
 class EmbeddingSourceType(StrEnum):
     PUBLIC_KNOWLEDGE_CHUNK = "public_knowledge_chunk"
     PUBLIC_QUESTION_TEMPLATE = "public_question_template"

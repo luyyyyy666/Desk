@@ -41,6 +41,7 @@ pub struct PostgresEmbeddingVectorRecord {
 pub struct RagSearchFilters {
     pub subject: Option<String>,
     pub knowledge_layer: Option<String>,
+    pub access_scope: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -401,13 +402,15 @@ impl PostgresLearningRepository {
             FROM rag_embedding_vectors
             WHERE ($2::text IS NULL OR metadata->>'subject' = $2)
               AND ($3::text IS NULL OR metadata->>'knowledgeLayer' = $3)
+              AND ($4::text IS NULL OR metadata->>'accessScope' = $4)
             ORDER BY embedding <=> $1::vector ASC, source_id ASC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(vector_literal(query_embedding))
         .bind(filters.subject)
         .bind(filters.knowledge_layer)
+        .bind(filters.access_scope)
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;

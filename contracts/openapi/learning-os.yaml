@@ -872,6 +872,7 @@ components:
           type: string
         metadata:
           type: object
+          description: Structured source metadata. Phase 4 access control uses accessScope: public, personal, or system.
           additionalProperties: true
         createdAt:
           type: string
@@ -924,6 +925,7 @@ components:
           type: string
         metadata:
           type: object
+          description: Structured embedding metadata. accessScope is enforced by backend search filters.
           additionalProperties: true
         createdAt:
           type: string
@@ -1034,6 +1036,7 @@ components:
           type: string
         filters:
           type: object
+          description: Structured filters such as subject, knowledgeLayer, gradeBand, and accessScope.
           additionalProperties: true
         limit:
           type: integer
@@ -1058,6 +1061,7 @@ components:
               type: string
             filters:
               type: object
+              description: Structured filters such as subject, knowledgeLayer, gradeBand, and accessScope.
               additionalProperties: true
             limit:
               type: integer

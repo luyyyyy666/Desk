@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from my_sifu_agent.rag import (
+    AccessScope,
     EmbeddingJob,
     EmbeddingJobSource,
     EmbeddingProviderConfig,
@@ -130,10 +131,11 @@ class Phase4RagApi:
         pipeline = ["structured_filter", "embedding_query", "vector_search"]
         if rerank:
             pipeline.append("rerank")
+        filters = _access_scoped_filters(payload)
         return {
             "plan": {
                 "query": _required(payload, "query"),
-                "filters": dict(payload.get("filters", {})),
+                "filters": filters,
                 "limit": int(payload.get("limit", 10)),
                 "rerank": rerank,
                 "pipeline": pipeline,
@@ -155,7 +157,7 @@ class Phase4RagApi:
             }
         results = self.embedding_index.search(
             query_vector=gateway_result.embeddings[0].vector,
-            filters=dict(payload.get("filters", {})),
+            filters=_access_scoped_filters(payload),
             limit=int(payload.get("limit", 10)),
         )
         return {
@@ -199,6 +201,7 @@ class Phase4RagApi:
             created_at=_parse_datetime(_required(payload, "createdAt")),
         )
         chunks = self.knowledge_source_repository.list_chunks(source.id)
+        source_metadata = {**source.metadata, "accessScope": AccessScope.PUBLIC.value}
         embedding_sources = [
             EmbeddingJobSource(
                 source_type=EmbeddingSourceType.PUBLIC_KNOWLEDGE_CHUNK,
@@ -206,7 +209,7 @@ class Phase4RagApi:
                 content_hash=chunk.content_hash,
                 text=chunk.text,
                 metadata={
-                    **chunk.metadata,
+                    **source_metadata,
                     "knowledgeLayer": source.knowledge_layer.value,
                     "sourceTitle": source.title,
                 },
@@ -238,6 +241,12 @@ def _required(payload: dict[str, Any], key: str) -> Any:
 
 def _parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value)
+
+
+def _access_scoped_filters(payload: dict[str, Any]) -> dict[str, Any]:
+    filters = dict(payload.get("filters", {}))
+    filters.setdefault("accessScope", AccessScope.PUBLIC.value)
+    return filters
 
 
 def _embedding_job_source_from_json(payload: dict[str, Any]) -> EmbeddingJobSource:

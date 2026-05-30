@@ -107,6 +107,7 @@ def test_rag_api_returns_embedding_search_contract_without_vector_execution() ->
             "subject": "math",
             "gradeBand": "middle_school",
             "knowledgeLayer": "curriculum",
+            "accessScope": "public",
         },
         "limit": 5,
         "rerank": True,
