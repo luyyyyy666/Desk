@@ -6,8 +6,9 @@ This audit maps the current Phase 4 implementation back to
 `docs/architecture/2026-05-13-full-stack-agent-phases.md`.
 
 Phase 4 now has executable Python contracts for ingestion, embedding gateway request handling,
-embedding jobs, in-memory vector indexing, and embedding search. It also has a PostgreSQL +
-pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filtered vector search.
+embedding jobs, in-memory vector indexing, access-scoped embedding search, and generation retrieval
+context handoff. It also has a PostgreSQL + pgvector schema and a Rust/sqlx persistence adapter for
+vector upsert, filtered vector search, and retrieval result persistence.
 
 ## Current Commits
 
@@ -17,7 +18,11 @@ pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filter
 - `c2160eb` Add phase 4 embedding search
 - `1150183` Add phase 4 pgvector schema
 - `d43a7a9` Expose phase 4 rag status in frontend
+- `2600c7b` Document phase 4 implementation audit
 - `1a8b0c9` Use pgvector postgres runtime
+- `f0d0c85` Add phase 4 pgvector repository
+- `cf2c56f` Add phase 4 generation retrieval context
+- `e1c9741` Add phase 4 source access control
 
 ## Implemented
 
@@ -36,7 +41,8 @@ pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filter
 | Retrieval request/result contract | Implemented | `Phase4RagApi.embedding_search()`; OpenAPI `EmbeddingSearchResponse` and `RetrievalResult` |
 | Retrieval result persistence | Implemented in Rust persistence | `PostgresLearningRepository.persist_retrieval_results()` and `retrieval_results_for_query()` |
 | Generation phase can consume retrieval results without direct DB coupling | Implemented as backend contract | `Phase4RagApi.build_generation_retrieval_context()`; OpenAPI `/api/generation/retrieval-context`; `directDatabaseAccess: false` |
-| Structured filters + vector similarity | Implemented in memory | `InMemoryEmbeddingIndex.search()` combines metadata filters and cosine similarity |
+| Structured filters + vector similarity | Implemented in memory and pgvector adapter | `InMemoryEmbeddingIndex.search()` combines metadata filters and cosine similarity; `PostgresLearningRepository.search_embedding_vectors()` applies subject, knowledge layer, and access scope filters |
+| Source access control | Implemented as explicit search metadata | `AccessScope` enum; public knowledge ingestion writes `accessScope: public`; `Phase4RagApi.embedding_search()` defaults to public access; pgvector search supports `RagSearchFilters.access_scope` |
 | Source ids and trust scores in results | Implemented | `RetrievalResult` contains `source_id`, `trust_score`, `final_score`, `trust_tier` |
 | Frontend status surface | Implemented as static PC UI | Knowledge window shows Phase 4 RAG pipeline, backend key ownership, ingest/job/search status |
 
@@ -44,8 +50,7 @@ pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filter
 
 | Requirement | Current state | Needed next |
 | --- | --- | --- |
-| Source access control | Not implemented | Add user/system access scope fields and enforce them in search filters |
-| AgentRun event integration | Not implemented | Record retrieval context creation as AgentRun events after the AgentRun/RAG orchestration path is defined |
+| AgentRun event integration | Deferred | Record retrieval context creation as AgentRun events after the AgentRun/RAG orchestration path and retrieval event payload are defined |
 | Real textbook chapter parser | Plain text only | Add parser only after supported source formats are specified |
 | Real `/rag/rerank` service | Not implemented | Add deterministic or model-backed reranker contract after ranking policy is specified |
 
@@ -56,21 +61,27 @@ Run after current Phase 4 changes:
 ```text
 uv run pytest
 uv run ruff check .
+cargo fmt --all --check
 cargo test -p persistence --test postgres_persistence_contract
+cargo clippy -p persistence --all-targets -- -D warnings
 cd frontend; npm run test
 cd frontend; npm run lint
 cd frontend; npm run build
+just docker-config
 git diff --check
 ```
 
 Latest observed results:
 
-- Python tests: `64 passed`
+- Python tests: `68 passed`
 - Python lint: passed
-- Rust persistence contract: `3 passed`
+- Rust format: passed
+- Rust persistence contract: `5 passed`
+- Rust clippy: passed
 - Frontend tests: `11 passed`
 - Frontend lint: passed
 - Frontend build: passed
+- Docker compose config: passed; PostgreSQL image resolves to `pgvector/pgvector:pg17`
 - `git diff --check`: passed
 
 ## Boundary Checks
@@ -80,3 +91,4 @@ Latest observed results:
 - Phase 3 `/api/memory/hybrid-retrieval/plan` remains plan-only with `executesRetrieval: false`.
 - Public knowledge curated content remains empty; Phase 4 only adds ingestion/index/search paths.
 - Personal knowledge node/edge embeddings are still not required.
+- Default embedding search is access-scoped to public knowledge unless a backend caller explicitly supplies another `accessScope`.
