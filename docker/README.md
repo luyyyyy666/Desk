@@ -5,7 +5,7 @@ host during this phase.
 
 Services:
 
-- `postgres`: PostgreSQL for durable AgentRun and future product data.
+- `postgres`: PostgreSQL with pgvector for durable AgentRun data and Phase 4 RAG embeddings.
 - `new-api`: local OpenAI-compatible model gateway. Configure upstream provider keys in the New API
   admin UI or local environment; never commit real keys.
 - `redis`: placeholder for future queue, cache, rate-limit, and job lifecycle work. New API uses

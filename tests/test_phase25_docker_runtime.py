@@ -10,7 +10,7 @@ def test_phase25_compose_declares_required_local_services() -> None:
         assert service in compose
 
     for image in [
-        "postgres:17-alpine",
+        "pgvector/pgvector:pg17",
         "calciumion/new-api:latest",
         "redis:7-alpine",
         "minio/minio:latest",
@@ -59,6 +59,14 @@ def test_phase25_docker_environment_example_has_safe_local_defaults() -> None:
         assert fragment not in env
 
     assert "NEW_API_SQL_DSN" not in env
+
+
+def test_phase4_docker_postgres_image_supports_pgvector_extension() -> None:
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    readme = (ROOT / "docker" / "README.md").read_text(encoding="utf-8")
+
+    assert "pgvector/pgvector:pg17" in compose
+    assert "pgvector" in readme
 
 
 def test_phase25_justfile_exposes_docker_commands() -> None:
