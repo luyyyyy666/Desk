@@ -25,6 +25,37 @@ pub struct DatabaseConfig {
     pub database_url: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PostgresEmbeddingVectorRecord {
+    pub id: String,
+    pub source_type: String,
+    pub source_id: String,
+    pub chunk_id: String,
+    pub embedding_model: String,
+    pub content_hash: String,
+    pub embedding: Vec<f32>,
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RagSearchFilters {
+    pub subject: Option<String>,
+    pub knowledge_layer: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PostgresRetrievalResult {
+    pub source_type: String,
+    pub source_id: String,
+    pub chunk_id: String,
+    pub knowledge_layer: String,
+    pub similarity_score: f64,
+    pub trust_score: f64,
+    pub final_score: f64,
+    pub trust_tier: String,
+    pub metadata: serde_json::Value,
+}
+
 impl DatabaseConfig {
     pub fn from_env() -> Option<Self> {
         Self::from_env_with(|key| std::env::var(key).ok())
@@ -298,6 +329,185 @@ impl PostgresLearningRepository {
             })
             .collect())
     }
+
+    pub async fn upsert_embedding_vector(
+        &self,
+        record: PostgresEmbeddingVectorRecord,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO rag_embedding_vectors (
+                id,
+                source_type,
+                source_id,
+                chunk_id,
+                embedding_model,
+                content_hash,
+                embedding,
+                metadata
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7::vector, $8)
+            ON CONFLICT (source_type, source_id, chunk_id, embedding_model, content_hash)
+            DO UPDATE SET metadata = EXCLUDED.metadata
+            "#,
+        )
+        .bind(&record.id)
+        .bind(&record.source_type)
+        .bind(&record.source_id)
+        .bind(&record.chunk_id)
+        .bind(&record.embedding_model)
+        .bind(&record.content_hash)
+        .bind(vector_literal(&record.embedding))
+        .bind(record.metadata)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn search_embedding_vectors(
+        &self,
+        query_embedding: &[f32],
+        filters: RagSearchFilters,
+        limit: i64,
+    ) -> Result<Vec<PostgresRetrievalResult>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                source_type,
+                source_id,
+                chunk_id,
+                COALESCE(metadata->>'knowledgeLayer', 'question') AS knowledge_layer,
+                1 - (embedding <=> $1::vector) AS similarity_score,
+                CASE
+                    WHEN source_type = 'public_knowledge_chunk' THEN 0.9
+                    WHEN source_type IN ('public_question', 'public_question_template') THEN 0.82
+                    ELSE 0.72
+                END AS trust_score,
+                (
+                    (1 - (embedding <=> $1::vector)) +
+                    CASE
+                        WHEN source_type = 'public_knowledge_chunk' THEN 0.9
+                        WHEN source_type IN ('public_question', 'public_question_template') THEN 0.82
+                        ELSE 0.72
+                    END
+                ) / 2 AS final_score,
+                CASE
+                    WHEN source_type = 'public_knowledge_chunk' THEN 'curated'
+                    WHEN source_type IN ('public_question', 'public_question_template') THEN 'verified'
+                    ELSE 'user_evidence'
+                END AS trust_tier,
+                metadata
+            FROM rag_embedding_vectors
+            WHERE ($2::text IS NULL OR metadata->>'subject' = $2)
+              AND ($3::text IS NULL OR metadata->>'knowledgeLayer' = $3)
+            ORDER BY embedding <=> $1::vector ASC, source_id ASC
+            LIMIT $4
+            "#,
+        )
+        .bind(vector_literal(query_embedding))
+        .bind(filters.subject)
+        .bind(filters.knowledge_layer)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| PostgresRetrievalResult {
+                source_type: row.get("source_type"),
+                source_id: row.get("source_id"),
+                chunk_id: row.get("chunk_id"),
+                knowledge_layer: row.get("knowledge_layer"),
+                similarity_score: row.get("similarity_score"),
+                trust_score: row.get("trust_score"),
+                final_score: row.get("final_score"),
+                trust_tier: row.get("trust_tier"),
+                metadata: row.get("metadata"),
+            })
+            .collect())
+    }
+
+    pub async fn persist_retrieval_results(
+        &self,
+        query: &str,
+        results: &[PostgresRetrievalResult],
+    ) -> Result<(), sqlx::Error> {
+        for result in results {
+            sqlx::query(
+                r#"
+                INSERT INTO rag_retrieval_results (
+                    query,
+                    source_type,
+                    source_id,
+                    chunk_id,
+                    knowledge_layer,
+                    similarity_score,
+                    trust_score,
+                    final_score,
+                    trust_tier,
+                    metadata
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                "#,
+            )
+            .bind(query)
+            .bind(&result.source_type)
+            .bind(&result.source_id)
+            .bind(&result.chunk_id)
+            .bind(&result.knowledge_layer)
+            .bind(result.similarity_score)
+            .bind(result.trust_score)
+            .bind(result.final_score)
+            .bind(&result.trust_tier)
+            .bind(&result.metadata)
+            .execute(&self.pool)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn retrieval_results_for_query(
+        &self,
+        query: &str,
+    ) -> Result<Vec<PostgresRetrievalResult>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                source_type,
+                source_id,
+                chunk_id,
+                knowledge_layer,
+                similarity_score,
+                trust_score,
+                final_score,
+                trust_tier,
+                metadata
+            FROM rag_retrieval_results
+            WHERE query = $1
+            ORDER BY final_score DESC, source_id ASC
+            "#,
+        )
+        .bind(query)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| PostgresRetrievalResult {
+                source_type: row.get("source_type"),
+                source_id: row.get("source_id"),
+                chunk_id: row.get("chunk_id"),
+                knowledge_layer: row.get("knowledge_layer"),
+                similarity_score: row.get("similarity_score"),
+                trust_score: row.get("trust_score"),
+                final_score: row.get("final_score"),
+                trust_tier: row.get("trust_tier"),
+                metadata: row.get("metadata"),
+            })
+            .collect())
+    }
 }
 
 fn next_run_id() -> String {
@@ -348,6 +558,15 @@ fn agent_run_event_kind_from_db(kind: &str) -> AgentRunEventKind {
         "evaluation_completed" => AgentRunEventKind::EvaluationCompleted,
         _ => AgentRunEventKind::GenerationJobCreated,
     }
+}
+
+fn vector_literal(values: &[f32]) -> String {
+    let body = values
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{body}]")
 }
 
 #[cfg(test)]

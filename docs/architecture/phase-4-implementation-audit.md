@@ -7,8 +7,7 @@ This audit maps the current Phase 4 implementation back to
 
 Phase 4 now has executable Python contracts for ingestion, embedding gateway request handling,
 embedding jobs, in-memory vector indexing, and embedding search. It also has a PostgreSQL +
-pgvector schema contract. Runtime PostgreSQL write/read adapters are not implemented yet, so the
-database-backed exit criteria are not complete.
+pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filtered vector search.
 
 ## Current Commits
 
@@ -18,6 +17,7 @@ database-backed exit criteria are not complete.
 - `c2160eb` Add phase 4 embedding search
 - `1150183` Add phase 4 pgvector schema
 - `d43a7a9` Expose phase 4 rag status in frontend
+- `1a8b0c9` Use pgvector postgres runtime
 
 ## Implemented
 
@@ -31,8 +31,10 @@ database-backed exit criteria are not complete.
 | Batch texts for embedding | Implemented in gateway/job path | `embed_texts()` accepts multiple texts; `run_embedding_job()` passes all job source texts |
 | Store `embedding_model`, `content_hash`, and source metadata with every vector | Implemented in in-memory index and pgvector schema | `EmbeddingVectorRecord`; `rag_embedding_vectors` table |
 | Skip duplicate embedding work by source/model/hash | Implemented in in-memory index and pgvector schema | `InMemoryEmbeddingIndex.upsert()`; unique constraint on `(source_type, source_id, chunk_id, embedding_model, content_hash)` |
+| PostgreSQL + pgvector runtime storage/search | Implemented in Rust persistence | `PostgresLearningRepository.upsert_embedding_vector()` and `search_embedding_vectors()`; `postgres_persistence_contract.rs` |
 | Retry transient provider failures with bounded attempts | Implemented | `OpenAICompatibleEmbeddingGateway.embed_texts()` tests cover 503 retry and bounded failure |
 | Retrieval request/result contract | Implemented | `Phase4RagApi.embedding_search()`; OpenAPI `EmbeddingSearchResponse` and `RetrievalResult` |
+| Retrieval result persistence | Implemented in Rust persistence | `PostgresLearningRepository.persist_retrieval_results()` and `retrieval_results_for_query()` |
 | Structured filters + vector similarity | Implemented in memory | `InMemoryEmbeddingIndex.search()` combines metadata filters and cosine similarity |
 | Source ids and trust scores in results | Implemented | `RetrievalResult` contains `source_id`, `trust_score`, `final_score`, `trust_tier` |
 | Frontend status surface | Implemented as static PC UI | Knowledge window shows Phase 4 RAG pipeline, backend key ownership, ingest/job/search status |
@@ -41,8 +43,6 @@ database-backed exit criteria are not complete.
 
 | Requirement | Current state | Needed next |
 | --- | --- | --- |
-| Embedding job stores vectors in PostgreSQL + pgvector | Schema exists, runtime adapter does not | Add Python or Rust repository that writes `rag_embedding_vectors` and reads search candidates from Postgres |
-| Retrieval result persistence | Schema exists, runtime write path does not | Persist `Phase4RagApi.embedding_search()` results into `rag_retrieval_results` |
 | Source access control | Not implemented | Add user/system access scope fields and enforce them in search filters |
 | Integration with AgentRun | Not implemented | Connect retrieval results to generation/AgentRun context without frontend direct DB access |
 | Real textbook chapter parser | Plain text only | Add parser only after supported source formats are specified |
