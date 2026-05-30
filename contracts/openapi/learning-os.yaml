@@ -519,6 +519,25 @@ paths:
                 $ref: "#/components/schemas/EmbeddingSearchResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/generation/retrieval-context:
+    post:
+      summary: Build generation context from Phase 4 retrieval results.
+      description: Generation receives retrieval results as context and does not directly query the vector database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerationRetrievalContextRequest"
+      responses:
+        "200":
+          description: Retrieval context ready for a generation step.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationRetrievalContextResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 components:
   parameters:
     JobId:
@@ -1104,6 +1123,45 @@ components:
         metadata:
           type: object
           additionalProperties: true
+    GenerationRetrievalContextRequest:
+      type: object
+      required: [query, results]
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetrievalResult"
+    GenerationRetrievalContextResponse:
+      type: object
+      required: [context]
+      properties:
+        context:
+          type: object
+          required: [query, sourceReferences, groundingText, directDatabaseAccess]
+          properties:
+            query:
+              type: string
+            sourceReferences:
+              type: array
+              items:
+                type: object
+                required: [sourceId, chunkId, trustScore, trustTier]
+                properties:
+                  sourceId:
+                    type: string
+                  chunkId:
+                    type: string
+                  trustScore:
+                    type: number
+                  trustTier:
+                    type: string
+            groundingText:
+              type: string
+            directDatabaseAccess:
+              type: boolean
+              example: false
     PublicKnowledgeStatus:
       type: object
       required: [knowledgePoints, tags, edges, isEmpty]

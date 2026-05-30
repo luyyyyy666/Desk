@@ -165,6 +165,27 @@ class Phase4RagApi:
             "usage": gateway_result.usage,
         }
 
+    def build_generation_retrieval_context(self, payload: dict[str, Any]) -> dict[str, Any]:
+        results = list(payload.get("results", []))
+        source_references = [
+            {
+                "sourceId": _required(result, "sourceId"),
+                "chunkId": _required(result, "chunkId"),
+                "trustScore": float(_required(result, "trustScore")),
+                "trustTier": _required(result, "trustTier"),
+            }
+            for result in results
+        ]
+        grounding_text = "\n\n".join(str(_required(result, "text")) for result in results)
+        return {
+            "context": {
+                "query": _required(payload, "query"),
+                "sourceReferences": source_references,
+                "groundingText": grounding_text,
+                "directDatabaseAccess": False,
+            }
+        }
+
     def ingest_plain_text(self, payload: dict[str, Any]) -> dict[str, Any]:
         source_format = _required(payload, "sourceFormat")
         if source_format != "plain_text":

@@ -35,6 +35,7 @@ pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filter
 | Retry transient provider failures with bounded attempts | Implemented | `OpenAICompatibleEmbeddingGateway.embed_texts()` tests cover 503 retry and bounded failure |
 | Retrieval request/result contract | Implemented | `Phase4RagApi.embedding_search()`; OpenAPI `EmbeddingSearchResponse` and `RetrievalResult` |
 | Retrieval result persistence | Implemented in Rust persistence | `PostgresLearningRepository.persist_retrieval_results()` and `retrieval_results_for_query()` |
+| Generation phase can consume retrieval results without direct DB coupling | Implemented as backend contract | `Phase4RagApi.build_generation_retrieval_context()`; OpenAPI `/api/generation/retrieval-context`; `directDatabaseAccess: false` |
 | Structured filters + vector similarity | Implemented in memory | `InMemoryEmbeddingIndex.search()` combines metadata filters and cosine similarity |
 | Source ids and trust scores in results | Implemented | `RetrievalResult` contains `source_id`, `trust_score`, `final_score`, `trust_tier` |
 | Frontend status surface | Implemented as static PC UI | Knowledge window shows Phase 4 RAG pipeline, backend key ownership, ingest/job/search status |
@@ -44,7 +45,7 @@ pgvector schema and a Rust/sqlx persistence adapter for vector upsert and filter
 | Requirement | Current state | Needed next |
 | --- | --- | --- |
 | Source access control | Not implemented | Add user/system access scope fields and enforce them in search filters |
-| Integration with AgentRun | Not implemented | Connect retrieval results to generation/AgentRun context without frontend direct DB access |
+| AgentRun event integration | Not implemented | Record retrieval context creation as AgentRun events after the AgentRun/RAG orchestration path is defined |
 | Real textbook chapter parser | Plain text only | Add parser only after supported source formats are specified |
 | Real `/rag/rerank` service | Not implemented | Add deterministic or model-backed reranker contract after ranking policy is specified |
 

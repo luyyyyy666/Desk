@@ -80,6 +80,7 @@ def test_learning_os_openapi_contract_declares_phase4_rag_paths() -> None:
         "/api/embeddings/jobs:",
         "/api/embeddings/jobs/{job_id}:",
         "/api/knowledge/embedding-search:",
+        "/api/generation/retrieval-context:",
     ]:
         assert path in content
 
@@ -101,6 +102,8 @@ def test_learning_os_openapi_contract_declares_phase4_rag_schemas() -> None:
         "EmbeddingSearchPlanResponse:",
         "EmbeddingSearchResponse:",
         "RetrievalResult:",
+        "GenerationRetrievalContextRequest:",
+        "GenerationRetrievalContextResponse:",
     ]:
         assert schema in content
 
@@ -109,3 +112,4 @@ def test_learning_os_openapi_contract_declares_phase4_rag_schemas() -> None:
     assert "providerCallsOwnedByBackend" in content
     assert "trustScore" in content
     assert "sourceId" in content
+    assert "directDatabaseAccess" in content
