@@ -9,12 +9,17 @@ from my_sifu_agent.rag import (
     EmbeddingJobSource,
     EmbeddingProviderConfig,
     EmbeddingSourceType,
+    EmbeddingVectorRecord,
+    InMemoryEmbeddingIndex,
+    VectorUpsertStatus,
 )
 
 
 @dataclass
 class Phase4RagApi:
     provider_config: EmbeddingProviderConfig
+    embedding_gateway: Any | None = None
+    embedding_index: InMemoryEmbeddingIndex = field(default_factory=InMemoryEmbeddingIndex)
     _embedding_jobs: dict[str, EmbeddingJob] = field(default_factory=dict)
 
     @classmethod
@@ -24,6 +29,8 @@ class Phase4RagApi:
         base_url: str | None,
         model: str | None,
         api_key_env_var: str | None,
+        embedding_gateway: Any | None = None,
+        embedding_index: InMemoryEmbeddingIndex | None = None,
     ) -> Phase4RagApi:
         return cls(
             provider_config=EmbeddingProviderConfig(
@@ -31,7 +38,9 @@ class Phase4RagApi:
                 base_url=base_url,
                 model=model,
                 api_key_env_var=api_key_env_var,
-            )
+            ),
+            embedding_gateway=embedding_gateway,
+            embedding_index=embedding_index or InMemoryEmbeddingIndex(),
         )
 
     def get_embedding_provider_status(self) -> dict[str, Any]:
@@ -60,6 +69,50 @@ class Phase4RagApi:
             raise KeyError(f"unknown embedding job: {job_id}") from exc
         return {"job": _embedding_job_to_json(job)}
 
+    def run_embedding_job(self, job_id: str, *, now: datetime) -> dict[str, Any]:
+        if self.embedding_gateway is None:
+            raise ValueError("embedding gateway is not configured")
+        job = self._get_embedding_job(job_id).running(started_at=now)
+        self._embedding_jobs[job.id] = job
+
+        gateway_result = self.embedding_gateway.embed_texts(
+            [source.text for source in job.sources]
+        )
+        embedded_texts = 0
+        skipped_texts = 0
+        upserts: list[dict[str, Any]] = []
+        for embedding in gateway_result.embeddings:
+            source = job.sources[embedding.index]
+            status = self.embedding_index.upsert(
+                EmbeddingVectorRecord(
+                    id=f"{job.id}_{source.source_type.value}_{source.source_id}_{embedding.index}",
+                    source_type=source.source_type,
+                    source_id=source.source_id,
+                    chunk_id=f"{source.source_id}:{embedding.index}",
+                    embedding_model=gateway_result.model,
+                    content_hash=source.content_hash,
+                    vector=embedding.vector,
+                    metadata=source.metadata,
+                )
+            )
+            if status == VectorUpsertStatus.UPSERTED:
+                embedded_texts += 1
+            else:
+                skipped_texts += 1
+            upserts.append({"sourceId": source.source_id, "status": status})
+
+        completed = job.completed(
+            completed_at=now,
+            embedded_texts=embedded_texts,
+            skipped_texts=skipped_texts,
+        )
+        self._embedding_jobs[completed.id] = completed
+        return {
+            "job": _embedding_job_to_json(completed),
+            "upserts": upserts,
+            "usage": gateway_result.usage,
+        }
+
     def plan_embedding_search(self, payload: dict[str, Any]) -> dict[str, Any]:
         rerank = bool(payload.get("rerank", True))
         pipeline = ["structured_filter", "embedding_query", "vector_search"]
@@ -75,6 +128,12 @@ class Phase4RagApi:
                 "executesVectorSearch": False,
             }
         }
+
+    def _get_embedding_job(self, job_id: str) -> EmbeddingJob:
+        try:
+            return self._embedding_jobs[job_id]
+        except KeyError as exc:
+            raise KeyError(f"unknown embedding job: {job_id}") from exc
 
 
 def _required(payload: dict[str, Any], key: str) -> Any:
@@ -116,7 +175,7 @@ def _embedding_job_to_json(job: EmbeddingJob) -> dict[str, Any]:
         "completedAt": (
             job.completed_at.isoformat() if job.completed_at is not None else None
         ),
-        "callsProvider": False,
+        "providerCallsOwnedByBackend": True,
     }
 
 

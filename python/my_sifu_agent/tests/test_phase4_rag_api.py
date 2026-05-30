@@ -60,7 +60,7 @@ def test_rag_api_creates_queued_embedding_job_without_calling_provider() -> None
     assert job["embeddedTexts"] == 0
     assert job["skippedTexts"] == 0
     assert job["failedTexts"] == 0
-    assert job["callsProvider"] is False
+    assert job["providerCallsOwnedByBackend"] is True
     assert api.get_embedding_job("emb_job_001")["job"] == job
 
 

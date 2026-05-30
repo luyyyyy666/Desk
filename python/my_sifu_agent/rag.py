@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -109,6 +109,37 @@ class EmbeddingJob:
     @property
     def source_types(self) -> tuple[EmbeddingSourceType, ...]:
         return tuple(dict.fromkeys(source.source_type for source in self.sources))
+
+    def running(self, *, started_at: datetime) -> EmbeddingJob:
+        return replace(
+            self,
+            status=EmbeddingJobStatus.RUNNING,
+            started_at=started_at,
+        )
+
+    def completed(
+        self,
+        *,
+        completed_at: datetime,
+        embedded_texts: int,
+        skipped_texts: int,
+        failed_texts: int = 0,
+        failure_summary: str | None = None,
+    ) -> EmbeddingJob:
+        status = EmbeddingJobStatus.COMPLETED
+        if failed_texts > 0 and embedded_texts + skipped_texts > 0:
+            status = EmbeddingJobStatus.PARTIAL_FAILED
+        elif failed_texts > 0:
+            status = EmbeddingJobStatus.FAILED
+        return replace(
+            self,
+            status=status,
+            completed_at=completed_at,
+            embedded_texts=embedded_texts,
+            skipped_texts=skipped_texts,
+            failed_texts=failed_texts,
+            failure_summary=failure_summary,
+        )
 
 
 @dataclass(frozen=True)

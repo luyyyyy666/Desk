@@ -867,7 +867,7 @@ components:
             - skippedTexts
             - failedTexts
             - createdAt
-            - callsProvider
+            - providerCallsOwnedByBackend
           properties:
             id:
               type: string
@@ -911,9 +911,9 @@ components:
                 - type: string
                   format: date-time
                 - type: "null"
-            callsProvider:
+            providerCallsOwnedByBackend:
               type: boolean
-              example: false
+              example: true
     EmbeddingSearchPlanRequest:
       type: object
       required: [query, filters, limit, rerank]
