@@ -1,6 +1,6 @@
 # Phase 4 RAG / Knowledge Retrieval Implementation Audit
 
-Date: 2026-05-30
+Date: 2026-05-31
 
 This audit maps the current Phase 4 implementation back to
 `docs/architecture/2026-05-13-full-stack-agent-phases.md`.
@@ -9,6 +9,8 @@ Phase 4 now has executable Python contracts for ingestion, embedding gateway req
 embedding jobs, in-memory vector indexing, access-scoped embedding search, and generation retrieval
 context handoff. It also has a PostgreSQL + pgvector schema and a Rust/sqlx persistence adapter for
 vector upsert, filtered vector search, and retrieval result persistence.
+The generation retrieval context handoff now emits a replayable AgentRun event when an AgentRun id
+and event sequence are supplied.
 
 ## Current Commits
 
@@ -23,6 +25,7 @@ vector upsert, filtered vector search, and retrieval result persistence.
 - `f0d0c85` Add phase 4 pgvector repository
 - `cf2c56f` Add phase 4 generation retrieval context
 - `e1c9741` Add phase 4 source access control
+- `d7f87db` Add rag retrieval agent run events
 
 ## Implemented
 
@@ -44,13 +47,13 @@ vector upsert, filtered vector search, and retrieval result persistence.
 | Structured filters + vector similarity | Implemented in memory and pgvector adapter | `InMemoryEmbeddingIndex.search()` combines metadata filters and cosine similarity; `PostgresLearningRepository.search_embedding_vectors()` applies subject, knowledge layer, and access scope filters |
 | Source access control | Implemented as explicit search metadata | `AccessScope` enum; public knowledge ingestion writes `accessScope: public`; `Phase4RagApi.embedding_search()` defaults to public access; pgvector search supports `RagSearchFilters.access_scope` |
 | Source ids and trust scores in results | Implemented | `RetrievalResult` contains `source_id`, `trust_score`, `final_score`, `trust_tier` |
+| AgentRun event integration | Implemented | `Phase4RagApi.build_generation_retrieval_context()` returns `retrieval_context_ready` when called with `agentRunId` and `sequence`; Rust `AgentRunEventKind::RetrievalContextReady` maps to DB value `retrieval_context_ready` |
 | Frontend status surface | Implemented as static PC UI | Knowledge window shows Phase 4 RAG pipeline, backend key ownership, ingest/job/search status |
 
 ## Not Complete Yet
 
 | Requirement | Current state | Needed next |
 | --- | --- | --- |
-| AgentRun event integration | Deferred | Record retrieval context creation as AgentRun events after the AgentRun/RAG orchestration path and retrieval event payload are defined |
 | Real textbook chapter parser | Plain text only | Add parser only after supported source formats are specified |
 | Real `/rag/rerank` service | Not implemented | Add deterministic or model-backed reranker contract after ranking policy is specified |
 
@@ -73,12 +76,13 @@ git diff --check
 
 Latest observed results:
 
-- Python tests: `68 passed`
+- Python tests: `74 passed`
 - Python lint: passed
 - Rust format: passed
-- Rust persistence contract: `5 passed`
+- Rust domain model contract: `6 passed`
+- Rust persistence contracts: `2 passed` and `5 passed`
 - Rust clippy: passed
-- Frontend tests: `11 passed`
+- Frontend tests: `13 passed`
 - Frontend lint: passed
 - Frontend build: passed
 - Docker compose config: passed; PostgreSQL image resolves to `pgvector/pgvector:pg17`
