@@ -56,6 +56,18 @@ fn repository_persists_agent_run_and_replays_events_in_sequence_order() {
             "directDatabaseAccess": false
         }),
     ));
+    repository.append_agent_run_event(AgentRunEvent::new(
+        run.id.clone(),
+        4,
+        AgentRunEventKind::ToolCallFailed,
+        serde_json::json!({
+            "toolCallId": "tool_call_run_memory_0001_001",
+            "toolName": "generate_question_set",
+            "skillId": "generate_question_set",
+            "status": "failed",
+            "error": "mock failure"
+        }),
+    ));
     repository.update_agent_run_status(&run.id, AgentRunStatus::Completed);
 
     let stored_run = repository.agent_run(&run.id).unwrap();
@@ -68,4 +80,6 @@ fn repository_persists_agent_run_and_replays_events_in_sequence_order() {
     assert_eq!(events[1].kind, AgentRunEventKind::QuestionSetReady);
     assert_eq!(events[2].kind, AgentRunEventKind::RetrievalContextReady);
     assert_eq!(events[2].payload["query"], "一次函数");
+    assert_eq!(events[3].kind, AgentRunEventKind::ToolCallFailed);
+    assert_eq!(events[3].payload["status"], "failed");
 }

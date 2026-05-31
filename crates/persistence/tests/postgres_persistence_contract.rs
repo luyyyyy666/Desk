@@ -92,6 +92,21 @@ async fn postgres_repository_persists_agent_run_events_when_database_is_configur
         .await
         .unwrap();
     repository
+        .append_agent_run_event(AgentRunEvent::new(
+            run.id.clone(),
+            3,
+            AgentRunEventKind::ToolCallFailed,
+            serde_json::json!({
+                "toolCallId": "tool_call_postgres_001",
+                "toolName": "generate_question_set",
+                "skillId": "generate_question_set",
+                "status": "failed",
+                "error": "mock failure"
+            }),
+        ))
+        .await
+        .unwrap();
+    repository
         .update_agent_run_status(&run.id, AgentRunStatus::Completed)
         .await
         .unwrap();
@@ -100,11 +115,13 @@ async fn postgres_repository_persists_agent_run_events_when_database_is_configur
     let events = repository.agent_run_events(&run.id).await.unwrap();
 
     assert_eq!(stored_run.status, AgentRunStatus::Completed);
-    assert_eq!(events.len(), 2);
+    assert_eq!(events.len(), 3);
     assert_eq!(events[0].kind, AgentRunEventKind::PlanCreated);
     assert_eq!(events[0].payload["planId"], "plan_postgres_001");
     assert_eq!(events[1].kind, AgentRunEventKind::RetrievalContextReady);
     assert_eq!(events[1].payload["query"], "一次函数");
+    assert_eq!(events[2].kind, AgentRunEventKind::ToolCallFailed);
+    assert_eq!(events[2].payload["status"], "failed");
 }
 
 #[tokio::test]

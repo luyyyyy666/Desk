@@ -289,6 +289,7 @@ pub enum AgentRunEventKind {
     QuestionSetReady,
     ToolCallStarted,
     ToolCallCompleted,
+    ToolCallFailed,
     EvaluationCompleted,
 }
 

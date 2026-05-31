@@ -85,6 +85,27 @@ fn agent_run_event_supports_plan_created_for_phase5_replay() {
 }
 
 #[test]
+fn agent_run_event_supports_tool_call_failed_for_phase6_replay() {
+    let event = AgentRunEvent::new(
+        "run_tool_001".to_string(),
+        4,
+        AgentRunEventKind::ToolCallFailed,
+        serde_json::json!({
+            "toolCallId": "tool_call_run_tool_001_001",
+            "toolName": "generate_question_set",
+            "skillId": "generate_question_set",
+            "status": "failed",
+            "error": "mock failure"
+        }),
+    );
+    let value = serde_json::to_value(&event).unwrap();
+
+    assert_eq!(event.kind, AgentRunEventKind::ToolCallFailed);
+    assert_eq!(value["kind"], "tool_call_failed");
+    assert_eq!(event.payload["status"], "failed");
+}
+
+#[test]
 fn phase2_supporting_entities_exist_for_future_memory_and_rag() {
     let user = User::fixture();
     let profile = LearningProfile::fixture_for_user(user.id.clone());

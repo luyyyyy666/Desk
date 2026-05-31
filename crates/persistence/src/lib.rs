@@ -551,6 +551,7 @@ fn agent_run_event_kind_to_db(kind: &AgentRunEventKind) -> &'static str {
         AgentRunEventKind::QuestionSetReady => "question_set_ready",
         AgentRunEventKind::ToolCallStarted => "tool_call_started",
         AgentRunEventKind::ToolCallCompleted => "tool_call_completed",
+        AgentRunEventKind::ToolCallFailed => "tool_call_failed",
         AgentRunEventKind::EvaluationCompleted => "evaluation_completed",
     }
 }
@@ -562,6 +563,7 @@ fn agent_run_event_kind_from_db(kind: &str) -> AgentRunEventKind {
         "question_set_ready" => AgentRunEventKind::QuestionSetReady,
         "tool_call_started" => AgentRunEventKind::ToolCallStarted,
         "tool_call_completed" => AgentRunEventKind::ToolCallCompleted,
+        "tool_call_failed" => AgentRunEventKind::ToolCallFailed,
         "evaluation_completed" => AgentRunEventKind::EvaluationCompleted,
         _ => AgentRunEventKind::GenerationJobCreated,
     }
