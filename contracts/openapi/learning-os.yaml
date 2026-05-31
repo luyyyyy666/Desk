@@ -571,6 +571,50 @@ paths:
                 $ref: "#/components/schemas/PlanResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/tools:
+    get:
+      summary: Read the Phase 6 typed Tool Manager registry.
+      description: Lists skill-backed tools derived from the Phase 5.5 skill catalog.
+      responses:
+        "200":
+          description: Registered tools and permissions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolRegistryResponse"
+  /api/tool-calls:
+    post:
+      summary: Execute a Phase 6 tool call through the backend Tool Manager.
+      description: The first Phase 6 implementation uses a backend mock executor and records auditable AgentRun events.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolCallRequest"
+      responses:
+        "201":
+          description: Tool call recorded with lifecycle events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolCallResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/tool-calls/{tool_call_id}:
+    get:
+      summary: Read an auditable Phase 6 tool call record.
+      parameters:
+        - $ref: "#/components/parameters/ToolCallId"
+      responses:
+        "200":
+          description: Persisted tool call record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolCallResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     JobId:
@@ -605,6 +649,12 @@ components:
         type: string
     PlanId:
       name: plan_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ToolCallId:
+      name: tool_call_id
       in: path
       required: true
       schema:
@@ -1275,6 +1325,121 @@ components:
           type: array
           items:
             type: string
+    ToolRegistryResponse:
+      type: object
+      required: [tools]
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolDefinition"
+    ToolDefinition:
+      type: object
+      required:
+        - name
+        - skillId
+        - inputSchemaRef
+        - outputSchemaRef
+        - requiredContext
+        - permissions
+        - timeoutSeconds
+        - maxRetries
+        - isSkillBacked
+      properties:
+        name:
+          type: string
+        skillId:
+          type: string
+        inputSchemaRef:
+          type: string
+        outputSchemaRef:
+          type: string
+        requiredContext:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [llm_call, retrieval_read, external_tool_call, export_write]
+        timeoutSeconds:
+          type: integer
+          minimum: 1
+        maxRetries:
+          type: integer
+          minimum: 0
+        isSkillBacked:
+          type: boolean
+    ToolCallRequest:
+      type: object
+      required: [agentRunId, toolName, input, sequenceStart]
+      properties:
+        agentRunId:
+          type: string
+        toolName:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        sequenceStart:
+          type: integer
+          minimum: 1
+    ToolCallResponse:
+      type: object
+      required: [toolCall, agentRunEvents]
+      properties:
+        toolCall:
+          $ref: "#/components/schemas/ToolCall"
+        agentRunEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRunEvent"
+    ToolCall:
+      type: object
+      required:
+        - id
+        - agentRunId
+        - toolName
+        - skillId
+        - status
+        - input
+        - output
+        - error
+        - startedAt
+        - finishedAt
+      properties:
+        id:
+          type: string
+        agentRunId:
+          type: string
+        toolName:
+          type: string
+        skillId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed]
+        input:
+          type: object
+          additionalProperties: true
+        output:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+        error:
+          type:
+            - string
+            - "null"
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
     AgentRunEvent:
       type: object
       required: [id, agentRunId, sequence, kind, payload]
@@ -1295,6 +1460,7 @@ components:
             - question_set_ready
             - tool_call_started
             - tool_call_completed
+            - tool_call_failed
             - evaluation_completed
         payload:
           type: object

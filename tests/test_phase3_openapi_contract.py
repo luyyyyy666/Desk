@@ -139,3 +139,30 @@ def test_learning_os_openapi_contract_declares_phase5_planning_paths_and_schemas
     assert "plan_created" in content
     assert "retrieval_context_ready" in content
     assert "skillId" in content
+
+
+def test_learning_os_openapi_contract_declares_phase6_tool_manager_paths_and_schemas() -> None:
+    content = (ROOT / "contracts" / "openapi" / "learning-os.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    for path in [
+        "/api/tools:",
+        "/api/tool-calls:",
+        "/api/tool-calls/{tool_call_id}:",
+    ]:
+        assert path in content
+
+    for schema in [
+        "ToolRegistryResponse:",
+        "ToolDefinition:",
+        "ToolCallRequest:",
+        "ToolCallResponse:",
+        "ToolCall:",
+    ]:
+        assert schema in content
+
+    assert "tool_call_started" in content
+    assert "tool_call_completed" in content
+    assert "tool_call_failed" in content
+    assert "mock executor" in content

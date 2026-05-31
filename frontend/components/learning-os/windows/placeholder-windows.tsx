@@ -8,6 +8,7 @@ import {
   publicKnowledgeStatus,
   ragPipelineStatus,
   reportMetrics,
+  toolManagerStatus,
 } from "@/lib/mock-data";
 
 export function GeneratorWindow() {
@@ -56,6 +57,38 @@ export function GeneratorWindow() {
                 <p className="mt-1 text-ink/60">{step.skillId}</p>
                 <p className="mt-1 text-[10px] uppercase text-ink/50">{step.status}</p>
               </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-md border-2 border-ink bg-paper-100 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <Badge tone="blue">Phase 6 Tool Manager</Badge>
+            <span className="rounded border border-ink bg-paper-50 px-2 py-1 text-xs font-black">
+              {toolManagerStatus.mode}
+            </span>
+          </div>
+          <p className="text-xs font-black text-ink/70">
+            {toolManagerStatus.activeToolCallId}
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-black">
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>{toolManagerStatus.activeToolName}</p>
+              <p className="mt-1 text-ink/60">{toolManagerStatus.skillId}</p>
+            </div>
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>registry</p>
+              <p className="mt-1 text-ink/60">{toolManagerStatus.registrySize} tools</p>
+            </div>
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>status</p>
+              <p className="mt-1 text-ink/60">{toolManagerStatus.status}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-black">
+            {toolManagerStatus.events.map((event) => (
+              <span key={event} className="rounded border border-ink bg-[#e8d099] px-2 py-1">
+                {event}
+              </span>
             ))}
           </div>
         </div>

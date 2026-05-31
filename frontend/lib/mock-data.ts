@@ -265,6 +265,16 @@ export const persistedPlan = {
   ],
 } as const;
 
+export const toolManagerStatus = {
+  mode: "mock executor",
+  registrySize: 10,
+  activeToolCallId: "tool_call_run_fixture_linear_function_001_001",
+  activeToolName: "search_knowledge",
+  skillId: "search_knowledge",
+  status: "succeeded",
+  events: ["tool_call_started", "tool_call_completed"],
+} as const;
+
 export const mistakeGroups = [
   {
     knowledge: "实际问题建模",

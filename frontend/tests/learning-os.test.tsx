@@ -75,10 +75,20 @@ describe("LearningDesktop", () => {
     expect(screen.getByText("Phase 5 Plan")).toBeInTheDocument();
     expect(screen.getByText("plan_run_fixture_linear_function_001")).toBeInTheDocument();
     expect(screen.getByText("step_01_search_knowledge")).toBeInTheDocument();
-    expect(screen.getByText("search_knowledge")).toBeInTheDocument();
+    expect(screen.getAllByText("search_knowledge").length).toBeGreaterThan(0);
     expect(screen.getByText("generate_question_set")).toBeInTheDocument();
     expect(screen.getByText("check_curriculum_alignment")).toBeInTheDocument();
     expect(screen.getByText("evaluate_question_quality")).toBeInTheDocument();
+  });
+
+  it("shows phase 6 tool manager progress events in the generator window", () => {
+    render(<LearningDesktop defaultWindow="generator" />);
+
+    expect(screen.getByText("Phase 6 Tool Manager")).toBeInTheDocument();
+    expect(screen.getByText("tool_call_run_fixture_linear_function_001_001")).toBeInTheDocument();
+    expect(screen.getByText("mock executor")).toBeInTheDocument();
+    expect(screen.getByText("tool_call_started")).toBeInTheDocument();
+    expect(screen.getByText("tool_call_completed")).toBeInTheDocument();
   });
 
   it("can close the active floating window", async () => {
