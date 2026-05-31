@@ -229,6 +229,9 @@ class Phase5PlanningApi:
             "agentRunEvent": _plan_created_event(plan, sequence=1),
         }
 
+    def get_plan(self, plan_id: str) -> dict[str, Any]:
+        return {"plan": _plan_to_json(self.plan_repository.get(plan_id))}
+
     def generate_question_generation_plan(
         self,
         *,

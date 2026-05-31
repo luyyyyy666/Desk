@@ -69,6 +69,18 @@ describe("LearningDesktop", () => {
     expect(screen.getByText("查询样例：一次函数")).toBeInTheDocument();
   });
 
+  it("shows persisted phase 5 plan progress in the generator window", () => {
+    render(<LearningDesktop defaultWindow="generator" />);
+
+    expect(screen.getByText("Phase 5 Plan")).toBeInTheDocument();
+    expect(screen.getByText("plan_run_fixture_linear_function_001")).toBeInTheDocument();
+    expect(screen.getByText("step_01_search_knowledge")).toBeInTheDocument();
+    expect(screen.getByText("search_knowledge")).toBeInTheDocument();
+    expect(screen.getByText("generate_question_set")).toBeInTheDocument();
+    expect(screen.getByText("check_curriculum_alignment")).toBeInTheDocument();
+    expect(screen.getByText("evaluate_question_quality")).toBeInTheDocument();
+  });
+
   it("can close the active floating window", async () => {
     const user = userEvent.setup();
     render(<LearningDesktop defaultWindow="errors" />);

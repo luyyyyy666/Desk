@@ -538,6 +538,39 @@ paths:
                 $ref: "#/components/schemas/GenerationRetrievalContextResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/plans/generate:
+    post:
+      summary: Generate a Phase 5 deterministic Agent plan.
+      description: Creates a persisted plan for a supported task type and emits a plan_created AgentRun event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanGenerateRequest"
+      responses:
+        "201":
+          description: Plan generated and persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/plans/{plan_id}:
+    get:
+      summary: Read persisted Phase 5 plan progress.
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: Persisted plan and current step progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     JobId:
@@ -566,6 +599,12 @@ components:
         type: string
     QuestionSetId:
       name: question_set_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PlanId:
+      name: plan_id
       in: path
       required: true
       schema:
@@ -872,7 +911,7 @@ components:
           type: string
         metadata:
           type: object
-          description: Structured source metadata. Phase 4 access control uses accessScope: public, personal, or system.
+          description: "Structured source metadata. Phase 4 access control uses accessScope: public, personal, or system."
           additionalProperties: true
         createdAt:
           type: string
@@ -1166,6 +1205,100 @@ components:
             directDatabaseAccess:
               type: boolean
               example: false
+        agentRunEvent:
+          $ref: "#/components/schemas/AgentRunEvent"
+    PlanGenerateRequest:
+      type: object
+      required: [agentRunId, userGoal, taskType, subject, questionCount]
+      properties:
+        agentRunId:
+          type: string
+        userGoal:
+          type: string
+        taskType:
+          type: string
+          enum: [question_generation]
+        subject:
+          type: string
+        knowledgePointIds:
+          type: array
+          items:
+            type: string
+        questionCount:
+          type: integer
+          minimum: 1
+    PlanResponse:
+      type: object
+      required: [plan]
+      properties:
+        plan:
+          $ref: "#/components/schemas/Plan"
+        agentRunEvent:
+          $ref: "#/components/schemas/AgentRunEvent"
+    Plan:
+      type: object
+      required: [id, agentRunId, userGoal, taskType, status, currentStepId, steps]
+      properties:
+        id:
+          type: string
+        agentRunId:
+          type: string
+        userGoal:
+          type: string
+        taskType:
+          type: string
+          enum: [question_generation]
+        status:
+          type: string
+          enum: [ready, running, completed, failed]
+        currentStepId:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStep"
+    PlanStep:
+      type: object
+      required: [id, skillId, title, status, requiredContext]
+      properties:
+        id:
+          type: string
+        skillId:
+          type: string
+          description: Stable backend skill id from the Phase 5.5 skill catalog.
+        title:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, blocked]
+        requiredContext:
+          type: array
+          items:
+            type: string
+    AgentRunEvent:
+      type: object
+      required: [id, agentRunId, sequence, kind, payload]
+      properties:
+        id:
+          type: string
+        agentRunId:
+          type: string
+        sequence:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+            - plan_created
+            - generation_job_created
+            - retrieval_context_ready
+            - question_set_ready
+            - tool_call_started
+            - tool_call_completed
+            - evaluation_completed
+        payload:
+          type: object
+          additionalProperties: true
     PublicKnowledgeStatus:
       type: object
       required: [knowledgePoints, tags, edges, isEmpty]

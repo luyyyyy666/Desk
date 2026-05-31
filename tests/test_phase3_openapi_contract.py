@@ -114,3 +114,28 @@ def test_learning_os_openapi_contract_declares_phase4_rag_schemas() -> None:
     assert "sourceId" in content
     assert "accessScope" in content
     assert "directDatabaseAccess" in content
+
+
+def test_learning_os_openapi_contract_declares_phase5_planning_paths_and_schemas() -> None:
+    content = (ROOT / "contracts" / "openapi" / "learning-os.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    for path in [
+        "/api/plans/generate:",
+        "/api/plans/{plan_id}:",
+    ]:
+        assert path in content
+
+    for schema in [
+        "PlanGenerateRequest:",
+        "PlanResponse:",
+        "Plan:",
+        "PlanStep:",
+        "AgentRunEvent:",
+    ]:
+        assert schema in content
+
+    assert "plan_created" in content
+    assert "retrieval_context_ready" in content
+    assert "skillId" in content

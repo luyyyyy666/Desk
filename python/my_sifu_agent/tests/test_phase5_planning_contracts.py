@@ -114,6 +114,10 @@ def test_planner_generates_question_generation_plan_with_catalog_skill_ids() -> 
         },
     }
 
+    persisted = api.get_plan("plan_run_plan_001")
+    assert persisted["plan"]["id"] == "plan_run_plan_001"
+    assert persisted["plan"]["currentStepId"] == "step_01_search_knowledge"
+
 
 def test_planner_rejects_unknown_skill_id_and_invalid_step_order() -> None:
     catalog = SkillCatalog.seed()

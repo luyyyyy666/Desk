@@ -232,6 +232,39 @@ export const ragPipelineStatus = {
   trustScore: 0.9,
 } as const;
 
+export const persistedPlan = {
+  id: "plan_run_fixture_linear_function_001",
+  agentRunId: "run_fixture_linear_function_001",
+  status: "ready",
+  currentStepId: "step_01_search_knowledge",
+  steps: [
+    {
+      id: "step_01_search_knowledge",
+      skillId: "search_knowledge",
+      title: "检索知识",
+      status: "pending",
+    },
+    {
+      id: "step_02_generate_question_set",
+      skillId: "generate_question_set",
+      title: "生成题单",
+      status: "pending",
+    },
+    {
+      id: "step_03_check_curriculum_alignment",
+      skillId: "check_curriculum_alignment",
+      title: "课标对齐检查",
+      status: "pending",
+    },
+    {
+      id: "step_04_evaluate_question_quality",
+      skillId: "evaluate_question_quality",
+      title: "题目质量评估",
+      status: "pending",
+    },
+  ],
+} as const;
+
 export const mistakeGroups = [
   {
     knowledge: "实际问题建模",

@@ -4,6 +4,7 @@ import {
   currentTask,
   knowledgePoints,
   mockQuestions,
+  persistedPlan,
   publicKnowledgeStatus,
   ragPipelineStatus,
   reportMetrics,
@@ -32,6 +33,28 @@ export function GeneratorWindow() {
               <div key={question.id} className="flex items-center justify-between rounded border border-ink/30 bg-paper-100 px-3 py-2 text-sm font-bold">
                 <span>{question.type} · {question.title}</span>
                 <Badge>{question.difficulty}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-md border-2 border-ink bg-[#dfe8bd] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <Badge tone="green">Phase 5 Plan</Badge>
+            <span className="rounded border border-ink bg-paper-50 px-2 py-1 text-xs font-black">
+              {persistedPlan.status}
+            </span>
+          </div>
+          <p className="text-xs font-black text-ink/70">{persistedPlan.id}</p>
+          <div className="mt-1 flex items-center gap-2 text-xs font-bold text-ink/60">
+            <span>当前步骤：</span>
+            <span>{persistedPlan.currentStepId}</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black">
+            {persistedPlan.steps.map((step) => (
+              <div key={step.id} className="rounded border border-ink bg-paper-50 p-2">
+                <p>{step.title}</p>
+                <p className="mt-1 text-ink/60">{step.skillId}</p>
+                <p className="mt-1 text-[10px] uppercase text-ink/50">{step.status}</p>
               </div>
             ))}
           </div>
