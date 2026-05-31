@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/grade_answer.schema.json",
+  "title": "grade_answer",
+  "type": "object",
+  "required": ["question", "correctAnswer", "userAnswer"],
+  "properties": {
+    "question": { "type": "object", "additionalProperties": true },
+    "correctAnswer": { "type": "string" },
+    "userAnswer": { "type": "string" },
+    "userReasoningSteps": { "type": "array", "items": { "type": "string" } },
+    "scoringRubric": { "type": "object", "additionalProperties": true }
+  },
+  "output": {
+    "type": "object",
+    "required": ["correctness", "score", "feedback", "detectedMisconception", "evidence"],
+    "properties": {
+      "correctness": { "type": "boolean" },
+      "score": { "type": "number" },
+      "feedback": { "type": "string" },
+      "detectedMisconception": { "type": "string" },
+      "evidence": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

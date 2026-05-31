@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/generate_question_set.schema.json",
+  "title": "generate_question_set",
+  "type": "object",
+  "required": ["learningGoal", "subject", "questionCount"],
+  "properties": {
+    "learningGoal": { "type": "string" },
+    "subject": { "type": "string" },
+    "learningStage": { "type": "string" },
+    "sourceScope": { "type": "string" },
+    "knowledgePointIds": { "type": "array", "items": { "type": "string" } },
+    "difficultyTarget": { "type": "string" },
+    "questionCount": { "type": "integer", "minimum": 1 },
+    "questionTypeDistribution": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "memoryContext": { "type": "object", "additionalProperties": true },
+    "retrievalResults": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+  },
+  "output": {
+    "type": "object",
+    "required": ["questionSetId", "questions", "answerKey", "explanations", "sourceReferences", "generationRationale"],
+    "properties": {
+      "questionSetId": { "type": "string" },
+      "questions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+      "answerKey": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+      "explanations": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+      "sourceReferences": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+      "generationRationale": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

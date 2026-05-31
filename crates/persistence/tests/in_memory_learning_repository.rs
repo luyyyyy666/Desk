@@ -32,8 +32,12 @@ fn repository_persists_agent_run_and_replays_events_in_sequence_order() {
     repository.append_agent_run_event(AgentRunEvent::new(
         run.id.clone(),
         1,
-        AgentRunEventKind::GenerationJobCreated,
-        serde_json::json!({ "job_id": fixtures::FIXTURE_JOB_ID }),
+        AgentRunEventKind::PlanCreated,
+        serde_json::json!({
+            "planId": "plan_run_memory_0001",
+            "status": "ready",
+            "skillIds": ["search_knowledge", "generate_question_set"]
+        }),
     ));
     repository.append_agent_run_event(AgentRunEvent::new(
         run.id.clone(),
@@ -59,6 +63,7 @@ fn repository_persists_agent_run_and_replays_events_in_sequence_order() {
 
     assert_eq!(stored_run.status, AgentRunStatus::Completed);
     assert_eq!(events[0].sequence, 1);
+    assert_eq!(events[0].kind, AgentRunEventKind::PlanCreated);
     assert_eq!(events[1].sequence, 2);
     assert_eq!(events[1].kind, AgentRunEventKind::QuestionSetReady);
     assert_eq!(events[2].kind, AgentRunEventKind::RetrievalContextReady);

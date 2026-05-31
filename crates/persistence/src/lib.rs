@@ -545,6 +545,7 @@ fn agent_run_status_from_db(status: &str) -> AgentRunStatus {
 
 fn agent_run_event_kind_to_db(kind: &AgentRunEventKind) -> &'static str {
     match kind {
+        AgentRunEventKind::PlanCreated => "plan_created",
         AgentRunEventKind::GenerationJobCreated => "generation_job_created",
         AgentRunEventKind::RetrievalContextReady => "retrieval_context_ready",
         AgentRunEventKind::QuestionSetReady => "question_set_ready",
@@ -556,6 +557,7 @@ fn agent_run_event_kind_to_db(kind: &AgentRunEventKind) -> &'static str {
 
 fn agent_run_event_kind_from_db(kind: &str) -> AgentRunEventKind {
     match kind {
+        "plan_created" => AgentRunEventKind::PlanCreated,
         "retrieval_context_ready" => AgentRunEventKind::RetrievalContextReady,
         "question_set_ready" => AgentRunEventKind::QuestionSetReady,
         "tool_call_started" => AgentRunEventKind::ToolCallStarted,

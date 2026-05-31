@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/check_curriculum_alignment.schema.json",
+  "title": "check_curriculum_alignment",
+  "type": "object",
+  "required": ["questionSet", "targetCurriculumScope"],
+  "properties": {
+    "questionSet": { "type": "object", "additionalProperties": true },
+    "targetCurriculumScope": { "type": "object", "additionalProperties": true },
+    "retrievalSourceReferences": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+  },
+  "output": {
+    "type": "object",
+    "required": ["alignmentScore", "missingCoverage", "offScopeItems", "recommendedCorrections"],
+    "properties": {
+      "alignmentScore": { "type": "number" },
+      "missingCoverage": { "type": "array", "items": { "type": "string" } },
+      "offScopeItems": { "type": "array", "items": { "type": "string" } },
+      "recommendedCorrections": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "additionalProperties": false
+}

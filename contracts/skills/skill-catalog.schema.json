@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/skill-catalog.schema.json",
+  "title": "My Sifu Skill Catalog",
+  "type": "object",
+  "required": ["skills"],
+  "properties": {
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skillId",
+          "displayName",
+          "inputSchemaRef",
+          "outputSchemaRef",
+          "requiredContext",
+          "capabilities",
+          "guardrails",
+          "eventLabels"
+        ],
+        "properties": {
+          "skillId": { "type": "string" },
+          "displayName": { "type": "string" },
+          "inputSchemaRef": { "type": "string" },
+          "outputSchemaRef": { "type": "string" },
+          "requiredContext": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["llm", "retrieval", "external_tool", "export_job"]
+            }
+          },
+          "guardrails": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "eventLabels": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

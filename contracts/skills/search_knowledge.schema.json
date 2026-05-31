@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/search_knowledge.schema.json",
+  "title": "search_knowledge",
+  "type": "object",
+  "required": ["query", "desiredResultCount"],
+  "properties": {
+    "query": { "type": "string" },
+    "sourceFilters": { "type": "object", "additionalProperties": true },
+    "userContext": { "type": "object", "additionalProperties": true },
+    "taskContext": { "type": "object", "additionalProperties": true },
+    "desiredResultCount": { "type": "integer", "minimum": 1 }
+  },
+  "output": {
+    "type": "object",
+    "required": ["retrievalResults", "sourceIds", "relevanceScores", "trustScores", "snippets"],
+    "properties": {
+      "retrievalResults": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+      "sourceIds": { "type": "array", "items": { "type": "string" } },
+      "relevanceScores": { "type": "array", "items": { "type": "number" } },
+      "trustScores": { "type": "array", "items": { "type": "number" } },
+      "snippets": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/analyze_mistake.schema.json",
+  "title": "analyze_mistake",
+  "type": "object",
+  "required": ["question", "userAnswer", "correctAnswer", "explanation"],
+  "properties": {
+    "question": { "type": "object", "additionalProperties": true },
+    "userAnswer": { "type": "string" },
+    "correctAnswer": { "type": "string" },
+    "explanation": { "type": "string" },
+    "knowledgePoints": { "type": "array", "items": { "type": "string" } },
+    "priorMistakes": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+  },
+  "output": {
+    "type": "object",
+    "required": ["mistakeCategory", "likelyCause", "weakKnowledgePoints", "remediationSuggestion", "memoryCandidate"],
+    "properties": {
+      "mistakeCategory": { "type": "string" },
+      "likelyCause": { "type": "string" },
+      "weakKnowledgePoints": { "type": "array", "items": { "type": "string" } },
+      "remediationSuggestion": { "type": "string" },
+      "memoryCandidate": { "type": "object", "additionalProperties": true }
+    }
+  },
+  "additionalProperties": false
+}

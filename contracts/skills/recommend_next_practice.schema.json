@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/recommend_next_practice.schema.json",
+  "title": "recommend_next_practice",
+  "type": "object",
+  "required": ["recentAttempts", "mistakeGroups", "masteryMetrics"],
+  "properties": {
+    "recentAttempts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "mistakeGroups": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "masteryMetrics": { "type": "object", "additionalProperties": true },
+    "memoryPreferences": { "type": "object", "additionalProperties": true },
+    "availableKnowledgeScope": { "type": "object", "additionalProperties": true }
+  },
+  "output": {
+    "type": "object",
+    "required": ["nextTaskRecommendation", "questionCount", "difficulty", "knowledgePointFocus", "rationale"],
+    "properties": {
+      "nextTaskRecommendation": { "type": "string" },
+      "questionCount": { "type": "integer" },
+      "difficulty": { "type": "string" },
+      "knowledgePointFocus": { "type": "array", "items": { "type": "string" } },
+      "rationale": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

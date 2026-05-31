@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/evaluate_question_quality.schema.json",
+  "title": "evaluate_question_quality",
+  "type": "object",
+  "required": ["questionSet", "intendedDifficulty", "sourceReferences"],
+  "properties": {
+    "questionSet": { "type": "object", "additionalProperties": true },
+    "intendedDifficulty": { "type": "string" },
+    "intendedQuestionTypeDistribution": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "sourceReferences": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "rubric": { "type": "object", "additionalProperties": true }
+  },
+  "output": {
+    "type": "object",
+    "required": ["qualityScore", "correctnessScore", "difficultyScore", "diversityScore", "explanationQualityScore", "recommendedRegenerationActions"],
+    "properties": {
+      "qualityScore": { "type": "number" },
+      "correctnessScore": { "type": "number" },
+      "difficultyScore": { "type": "number" },
+      "diversityScore": { "type": "number" },
+      "explanationQualityScore": { "type": "number" },
+      "recommendedRegenerationActions": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/export_paper.schema.json",
+  "title": "export_paper",
+  "type": "object",
+  "required": ["questionSetId", "exportFormat"],
+  "properties": {
+    "questionSetId": { "type": "string" },
+    "exportFormat": { "type": "string" },
+    "includeAnswers": { "type": "boolean" },
+    "includeExplanations": { "type": "boolean" },
+    "layoutOptions": { "type": "object", "additionalProperties": true }
+  },
+  "output": {
+    "type": "object",
+    "required": ["exportJobId", "artifactMetadata", "previewData"],
+    "properties": {
+      "exportJobId": { "type": "string" },
+      "artifactMetadata": { "type": "object", "additionalProperties": true },
+      "previewData": { "type": "object", "additionalProperties": true },
+      "downloadLink": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

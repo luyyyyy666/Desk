@@ -62,6 +62,19 @@ async fn postgres_repository_persists_agent_run_events_when_database_is_configur
         .append_agent_run_event(AgentRunEvent::new(
             run.id.clone(),
             1,
+            AgentRunEventKind::PlanCreated,
+            serde_json::json!({
+                "planId": "plan_postgres_001",
+                "status": "ready",
+                "skillIds": ["search_knowledge", "generate_question_set"]
+            }),
+        ))
+        .await
+        .unwrap();
+    repository
+        .append_agent_run_event(AgentRunEvent::new(
+            run.id.clone(),
+            2,
             AgentRunEventKind::RetrievalContextReady,
             serde_json::json!({
                 "query": "一次函数",
@@ -87,9 +100,11 @@ async fn postgres_repository_persists_agent_run_events_when_database_is_configur
     let events = repository.agent_run_events(&run.id).await.unwrap();
 
     assert_eq!(stored_run.status, AgentRunStatus::Completed);
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].kind, AgentRunEventKind::RetrievalContextReady);
-    assert_eq!(events[0].payload["query"], "一次函数");
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].kind, AgentRunEventKind::PlanCreated);
+    assert_eq!(events[0].payload["planId"], "plan_postgres_001");
+    assert_eq!(events[1].kind, AgentRunEventKind::RetrievalContextReady);
+    assert_eq!(events[1].payload["query"], "一次函数");
 }
 
 #[tokio::test]

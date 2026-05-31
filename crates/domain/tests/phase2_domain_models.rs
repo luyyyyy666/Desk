@@ -61,6 +61,30 @@ fn agent_run_event_supports_retrieval_context_ready_for_phase4_rag_replay() {
 }
 
 #[test]
+fn agent_run_event_supports_plan_created_for_phase5_replay() {
+    let event = AgentRunEvent::new(
+        "run_plan_001".to_string(),
+        1,
+        AgentRunEventKind::PlanCreated,
+        serde_json::json!({
+            "planId": "plan_run_plan_001",
+            "status": "ready",
+            "skillIds": [
+                "search_knowledge",
+                "generate_question_set",
+                "check_curriculum_alignment",
+                "evaluate_question_quality"
+            ]
+        }),
+    );
+    let value = serde_json::to_value(&event).unwrap();
+
+    assert_eq!(event.kind, AgentRunEventKind::PlanCreated);
+    assert_eq!(value["kind"], "plan_created");
+    assert_eq!(event.payload["planId"], "plan_run_plan_001");
+}
+
+#[test]
 fn phase2_supporting_entities_exist_for_future_memory_and_rag() {
     let user = User::fixture();
     let profile = LearningProfile::fixture_for_user(user.id.clone());

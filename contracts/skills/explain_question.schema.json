@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-sifu.local/contracts/skills/explain_question.schema.json",
+  "title": "explain_question",
+  "type": "object",
+  "required": ["question", "answer"],
+  "properties": {
+    "question": { "type": "object", "additionalProperties": true },
+    "answer": { "type": "string" },
+    "studentAnswer": { "type": "string" },
+    "stylePreference": { "type": "string" },
+    "knowledgeSnippets": { "type": "array", "items": { "type": "string" } }
+  },
+  "output": {
+    "type": "object",
+    "required": ["explanation", "keySteps", "commonMistakes", "relatedKnowledgePoints"],
+    "properties": {
+      "explanation": { "type": "string" },
+      "keySteps": { "type": "array", "items": { "type": "string" } },
+      "commonMistakes": { "type": "array", "items": { "type": "string" } },
+      "relatedKnowledgePoints": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "additionalProperties": false
+}
