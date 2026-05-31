@@ -185,7 +185,8 @@ class Phase4RagApi:
                 "sourceReferences": source_references,
                 "groundingText": grounding_text,
                 "directDatabaseAccess": False,
-            }
+            },
+            **_optional_retrieval_context_agent_run_event(payload, source_references),
         }
 
     def ingest_plain_text(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -247,6 +248,34 @@ def _access_scoped_filters(payload: dict[str, Any]) -> dict[str, Any]:
     filters = dict(payload.get("filters", {}))
     filters.setdefault("accessScope", AccessScope.PUBLIC.value)
     return filters
+
+
+def _optional_retrieval_context_agent_run_event(
+    payload: dict[str, Any],
+    source_references: list[dict[str, Any]],
+) -> dict[str, Any]:
+    agent_run_id = payload.get("agentRunId")
+    sequence = payload.get("sequence")
+    if agent_run_id is None and sequence is None:
+        return {}
+    if agent_run_id is None or sequence is None:
+        raise ValueError("agentRunId and sequence are both required to emit an AgentRun event")
+
+    sequence_value = int(sequence)
+    event_payload = {
+        "query": _required(payload, "query"),
+        "sourceReferences": source_references,
+        "directDatabaseAccess": False,
+    }
+    return {
+        "agentRunEvent": {
+            "id": f"event_{agent_run_id}_{sequence_value}",
+            "agentRunId": agent_run_id,
+            "sequence": sequence_value,
+            "kind": "retrieval_context_ready",
+            "payload": event_payload,
+        }
+    }
 
 
 def _embedding_job_source_from_json(payload: dict[str, Any]) -> EmbeddingJobSource:

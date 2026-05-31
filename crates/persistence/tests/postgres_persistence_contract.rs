@@ -62,8 +62,19 @@ async fn postgres_repository_persists_agent_run_events_when_database_is_configur
         .append_agent_run_event(AgentRunEvent::new(
             run.id.clone(),
             1,
-            AgentRunEventKind::GenerationJobCreated,
-            serde_json::json!({ "job_id": "job_fixture_linear_function_001" }),
+            AgentRunEventKind::RetrievalContextReady,
+            serde_json::json!({
+                "query": "一次函数",
+                "sourceReferences": [
+                    {
+                        "sourceId": "source_curriculum_001:chunk_0",
+                        "chunkId": "source_curriculum_001:chunk_0",
+                        "trustScore": 0.9,
+                        "trustTier": "curated"
+                    }
+                ],
+                "directDatabaseAccess": false
+            }),
         ))
         .await
         .unwrap();
@@ -77,7 +88,8 @@ async fn postgres_repository_persists_agent_run_events_when_database_is_configur
 
     assert_eq!(stored_run.status, AgentRunStatus::Completed);
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0].kind, AgentRunEventKind::GenerationJobCreated);
+    assert_eq!(events[0].kind, AgentRunEventKind::RetrievalContextReady);
+    assert_eq!(events[0].payload["query"], "一次函数");
 }
 
 #[tokio::test]

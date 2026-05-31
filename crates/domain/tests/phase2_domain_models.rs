@@ -35,6 +35,32 @@ fn agent_run_event_carries_replay_metadata() {
 }
 
 #[test]
+fn agent_run_event_supports_retrieval_context_ready_for_phase4_rag_replay() {
+    let event = AgentRunEvent::new(
+        "run_fixture_linear_function_001".to_string(),
+        3,
+        AgentRunEventKind::RetrievalContextReady,
+        serde_json::json!({
+            "query": "一次函数",
+            "sourceReferences": [
+                {
+                    "sourceId": "source_curriculum_001:chunk_0",
+                    "chunkId": "source_curriculum_001:chunk_0",
+                    "trustScore": 0.9,
+                    "trustTier": "curated"
+                }
+            ],
+            "directDatabaseAccess": false
+        }),
+    );
+    let value = serde_json::to_value(&event).unwrap();
+
+    assert_eq!(event.kind, AgentRunEventKind::RetrievalContextReady);
+    assert_eq!(value["kind"], "retrieval_context_ready");
+    assert_eq!(event.payload["query"], "一次函数");
+}
+
+#[test]
 fn phase2_supporting_entities_exist_for_future_memory_and_rag() {
     let user = User::fixture();
     let profile = LearningProfile::fixture_for_user(user.id.clone());

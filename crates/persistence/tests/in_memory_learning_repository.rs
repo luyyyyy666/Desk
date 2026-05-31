@@ -35,6 +35,23 @@ fn repository_persists_agent_run_and_replays_events_in_sequence_order() {
         AgentRunEventKind::GenerationJobCreated,
         serde_json::json!({ "job_id": fixtures::FIXTURE_JOB_ID }),
     ));
+    repository.append_agent_run_event(AgentRunEvent::new(
+        run.id.clone(),
+        3,
+        AgentRunEventKind::RetrievalContextReady,
+        serde_json::json!({
+            "query": "一次函数",
+            "sourceReferences": [
+                {
+                    "sourceId": "source_curriculum_001:chunk_0",
+                    "chunkId": "source_curriculum_001:chunk_0",
+                    "trustScore": 0.9,
+                    "trustTier": "curated"
+                }
+            ],
+            "directDatabaseAccess": false
+        }),
+    ));
     repository.update_agent_run_status(&run.id, AgentRunStatus::Completed);
 
     let stored_run = repository.agent_run(&run.id).unwrap();
@@ -44,4 +61,6 @@ fn repository_persists_agent_run_and_replays_events_in_sequence_order() {
     assert_eq!(events[0].sequence, 1);
     assert_eq!(events[1].sequence, 2);
     assert_eq!(events[1].kind, AgentRunEventKind::QuestionSetReady);
+    assert_eq!(events[2].kind, AgentRunEventKind::RetrievalContextReady);
+    assert_eq!(events[2].payload["query"], "一次函数");
 }
