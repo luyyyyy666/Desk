@@ -132,3 +132,66 @@ def test_idempotent_key_cannot_be_reused_for_different_operation() -> None:
         )
     else:
         raise AssertionError("expected idempotency key reuse to fail")
+
+
+def test_resume_interrupted_run_returns_active_plan_step_action() -> None:
+    store = AgentRunStateStore()
+    store.append_transition(
+        agent_run_id="run_state_004",
+        kind=StateTransitionKind.PHASE_CHANGED,
+        payload={"phase": "tool_execution"},
+    )
+    store.append_transition(
+        agent_run_id="run_state_004",
+        kind=StateTransitionKind.PLAN_STEP_ACTIVATED,
+        payload={"planStepId": "step_02_generate_question_set"},
+    )
+    store.append_transition(
+        agent_run_id="run_state_004",
+        kind=StateTransitionKind.TOOL_CALL_RECORDED,
+        payload={
+            "toolCallId": "tool_call_run_state_004_001",
+            "status": "failed",
+            "toolName": "generate_question_set",
+        },
+    )
+    store.append_transition(
+        agent_run_id="run_state_004",
+        kind=StateTransitionKind.RETRY_COUNT_CHANGED,
+        payload={"retryCount": 1},
+    )
+
+    resume_action = store.resume_action("run_state_004")
+
+    assert resume_action == {
+        "action": "resume_plan_step",
+        "agentRunId": "run_state_004",
+        "phase": "tool_execution",
+        "planStepId": "step_02_generate_question_set",
+        "retryCount": 1,
+        "lastToolCall": {
+            "toolCallId": "tool_call_run_state_004_001",
+            "status": "failed",
+            "toolName": "generate_question_set",
+        },
+    }
+
+
+def test_completed_run_does_not_resume() -> None:
+    store = AgentRunStateStore()
+    store.append_transition(
+        agent_run_id="run_state_005",
+        kind=StateTransitionKind.PLAN_STEP_ACTIVATED,
+        payload={"planStepId": "step_04_evaluate_question_quality"},
+    )
+    store.append_transition(
+        agent_run_id="run_state_005",
+        kind=StateTransitionKind.FINAL_RESPONSE_STATUS_CHANGED,
+        payload={"finalResponseStatus": "completed"},
+    )
+
+    assert store.resume_action("run_state_005") == {
+        "action": "none",
+        "agentRunId": "run_state_005",
+        "reason": "final_response_completed",
+    }

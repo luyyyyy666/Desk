@@ -111,6 +111,31 @@ class AgentRunStateStore:
             "response": response,
         }
 
+    def resume_action(self, agent_run_id: str) -> dict[str, Any]:
+        snapshot = self.snapshot(agent_run_id)
+        if snapshot["finalResponseStatus"] == "completed":
+            return {
+                "action": "none",
+                "agentRunId": agent_run_id,
+                "reason": "final_response_completed",
+            }
+        if snapshot["activePlanStepId"] is None:
+            return {
+                "action": "none",
+                "agentRunId": agent_run_id,
+                "reason": "no_active_plan_step",
+            }
+        tool_calls = snapshot["toolCalls"]
+        last_tool_call = tool_calls[-1] if tool_calls else None
+        return {
+            "action": "resume_plan_step",
+            "agentRunId": agent_run_id,
+            "phase": snapshot["currentPhase"],
+            "planStepId": snapshot["activePlanStepId"],
+            "retryCount": snapshot["retryCount"],
+            "lastToolCall": last_tool_call,
+        }
+
     def snapshot(self, agent_run_id: str) -> dict[str, Any]:
         snapshot: dict[str, Any] = {
             "agentRunId": agent_run_id,
@@ -142,12 +167,13 @@ def _apply_transition(snapshot: dict[str, Any], transition: StateTransition) -> 
         case StateTransitionKind.PLAN_STEP_ACTIVATED:
             snapshot["activePlanStepId"] = payload["planStepId"]
         case StateTransitionKind.TOOL_CALL_RECORDED:
-            snapshot["toolCalls"].append(
-                {
-                    "toolCallId": payload["toolCallId"],
-                    "status": payload["status"],
-                }
-            )
+            tool_call = {
+                "toolCallId": payload["toolCallId"],
+                "status": payload["status"],
+            }
+            if "toolName" in payload:
+                tool_call["toolName"] = payload["toolName"]
+            snapshot["toolCalls"].append(tool_call)
         case StateTransitionKind.ARTIFACT_RECORDED:
             snapshot["generatedArtifacts"].append(
                 {
