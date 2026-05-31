@@ -615,6 +615,50 @@ paths:
                 $ref: "#/components/schemas/ToolCallResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/agent-runs/{agent_run_id}/state:
+    get:
+      summary: Poll the current Phase 7 AgentRun state snapshot.
+      description: Returns state derived from append-only transitions for resumable Agent runs.
+      parameters:
+        - $ref: "#/components/parameters/AgentRunId"
+      responses:
+        "200":
+          description: Current AgentRun state snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRunStateSnapshotResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/agent-runs/{agent_run_id}/state/transitions:
+    get:
+      summary: Read Phase 7 append-only AgentRun state transitions.
+      parameters:
+        - $ref: "#/components/parameters/AgentRunId"
+      responses:
+        "200":
+          description: Ordered state transitions for the AgentRun.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StateTransitionListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/agent-runs/{agent_run_id}/resume:
+    post:
+      summary: Compute the Phase 7 deterministic resume action for an AgentRun.
+      description: The response is derived from explicit stored state so workers can remain stateless.
+      parameters:
+        - $ref: "#/components/parameters/AgentRunId"
+      responses:
+        "200":
+          description: Resume action for the current AgentRun state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeActionResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     JobId:
@@ -655,6 +699,12 @@ components:
         type: string
     ToolCallId:
       name: tool_call_id
+      in: path
+      required: true
+      schema:
+        type: string
+    AgentRunId:
+      name: agent_run_id
       in: path
       required: true
       schema:
@@ -1440,6 +1490,146 @@ components:
             - string
             - "null"
           format: date-time
+    AgentRunStateSnapshotResponse:
+      type: object
+      required: [state]
+      properties:
+        state:
+          $ref: "#/components/schemas/AgentRunStateSnapshot"
+    StateTransitionListResponse:
+      type: object
+      required: [transitions]
+      properties:
+        transitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StateTransition"
+    AgentRunStateSnapshot:
+      type: object
+      required:
+        - agentRunId
+        - currentPhase
+        - activePlanStepId
+        - generatedArtifacts
+        - toolCalls
+        - userConfirmations
+        - retryCount
+        - finalResponseStatus
+        - transitionCount
+        - updatedAt
+      properties:
+        agentRunId:
+          type: string
+        currentPhase:
+          type: string
+          enum: [created, planning, retrieval, tool_execution, waiting_for_user, finalizing]
+        activePlanStepId:
+          type:
+            - string
+            - "null"
+        generatedArtifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedArtifactRef"
+        toolCalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/StateToolCallRef"
+        userConfirmations:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserConfirmationRef"
+        retryCount:
+          type: integer
+          minimum: 0
+        finalResponseStatus:
+          type: string
+          enum: [pending, running, waiting_for_user, completed, failed]
+        transitionCount:
+          type: integer
+          minimum: 0
+        updatedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    StateTransition:
+      type: object
+      required: [id, agentRunId, sequence, kind, payload, createdAt]
+      properties:
+        id:
+          type: string
+        agentRunId:
+          type: string
+        sequence:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+            - phase_changed
+            - plan_step_activated
+            - tool_call_recorded
+            - artifact_recorded
+            - user_confirmation_recorded
+            - retry_count_changed
+            - final_response_status_changed
+        payload:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    GeneratedArtifactRef:
+      type: object
+      required: [artifactId, artifactType]
+      properties:
+        artifactId:
+          type: string
+        artifactType:
+          type: string
+    StateToolCallRef:
+      type: object
+      required: [toolCallId, status]
+      properties:
+        toolCallId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed]
+        toolName:
+          type: string
+    UserConfirmationRef:
+      type: object
+      required: [confirmationId, status]
+      properties:
+        confirmationId:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+    ResumeActionResponse:
+      type: object
+      required: [action, agentRunId]
+      properties:
+        action:
+          type: string
+          enum: [none, resume_plan_step]
+        agentRunId:
+          type: string
+        reason:
+          type: string
+        phase:
+          type: string
+        planStepId:
+          type: string
+        retryCount:
+          type: integer
+          minimum: 0
+        lastToolCall:
+          oneOf:
+            - $ref: "#/components/schemas/StateToolCallRef"
+            - type: "null"
     AgentRunEvent:
       type: object
       required: [id, agentRunId, sequence, kind, payload]

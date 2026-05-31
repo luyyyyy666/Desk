@@ -91,6 +91,17 @@ describe("LearningDesktop", () => {
     expect(screen.getByText("tool_call_completed")).toBeInTheDocument();
   });
 
+  it("shows phase 7 agent run state and resume status in the generator window", () => {
+    render(<LearningDesktop defaultWindow="generator" />);
+
+    expect(screen.getByText("Phase 7 State")).toBeInTheDocument();
+    expect(screen.getByText("run_fixture_linear_function_001")).toBeInTheDocument();
+    expect(screen.getByText("tool_execution")).toBeInTheDocument();
+    expect(screen.getByText("waiting_for_user")).toBeInTheDocument();
+    expect(screen.getByText("resume_plan_step")).toBeInTheDocument();
+    expect(screen.getByText("transitions: 7")).toBeInTheDocument();
+  });
+
   it("can close the active floating window", async () => {
     const user = userEvent.setup();
     render(<LearningDesktop defaultWindow="errors" />);

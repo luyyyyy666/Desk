@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  agentRunState,
   currentTask,
   knowledgePoints,
   mockQuestions,
@@ -90,6 +91,36 @@ export function GeneratorWindow() {
                 {event}
               </span>
             ))}
+          </div>
+        </div>
+        <div className="rounded-md border-2 border-ink bg-[#e7d6b8] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <Badge tone="orange">Phase 7 State</Badge>
+            <span className="rounded border border-ink bg-paper-50 px-2 py-1 text-xs font-black">
+              {agentRunState.resumeAction}
+            </span>
+          </div>
+          <p className="text-xs font-black text-ink/70">{agentRunState.agentRunId}</p>
+          <div className="mt-3 grid grid-cols-4 gap-2 text-xs font-black">
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>phase</p>
+              <p className="mt-1 text-ink/60">{agentRunState.currentPhase}</p>
+            </div>
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>final</p>
+              <p className="mt-1 text-ink/60">{agentRunState.finalResponseStatus}</p>
+            </div>
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>retry</p>
+              <p className="mt-1 text-ink/60">{agentRunState.retryCount}</p>
+            </div>
+            <div className="rounded border border-ink bg-paper-50 p-2">
+              <p>transitions</p>
+              <p className="mt-1 text-ink/60">transitions: {agentRunState.transitionCount}</p>
+            </div>
+          </div>
+          <div className="mt-3 rounded border border-ink bg-paper-100 p-2 text-xs font-bold text-ink/70">
+            active step：{agentRunState.activePlanStepId}
           </div>
         </div>
       </div>

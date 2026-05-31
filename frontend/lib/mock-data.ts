@@ -275,6 +275,17 @@ export const toolManagerStatus = {
   events: ["tool_call_started", "tool_call_completed"],
 } as const;
 
+export const agentRunState = {
+  agentRunId: "run_fixture_linear_function_001",
+  currentPhase: "tool_execution",
+  activePlanStepId: "step_02_generate_question_set",
+  finalResponseStatus: "waiting_for_user",
+  transitionCount: 7,
+  retryCount: 1,
+  resumeAction: "resume_plan_step",
+  updatedAt: "2026-05-31T00:00:00Z",
+} as const;
+
 export const mistakeGroups = [
   {
     knowledge: "实际问题建模",
