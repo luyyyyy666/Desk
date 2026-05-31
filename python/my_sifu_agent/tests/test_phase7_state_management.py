@@ -67,3 +67,68 @@ def test_state_store_builds_snapshot_from_append_only_transitions() -> None:
     transitions = store.transitions_for("run_state_001")
     assert [transition["sequence"] for transition in transitions] == list(range(1, 8))
     assert transitions[0]["kind"] == "phase_changed"
+
+
+def test_idempotent_request_replays_first_response_without_duplicate_transitions() -> None:
+    store = AgentRunStateStore()
+
+    first = store.record_idempotent_request(
+        agent_run_id="run_state_002",
+        idempotency_key="client_request_001",
+        operation="activate_plan_step",
+        response={"accepted": True, "planStepId": "step_01_search_knowledge"},
+        transitions=(
+            (
+                StateTransitionKind.PLAN_STEP_ACTIVATED,
+                {"planStepId": "step_01_search_knowledge"},
+            ),
+        ),
+    )
+    duplicate = store.record_idempotent_request(
+        agent_run_id="run_state_002",
+        idempotency_key="client_request_001",
+        operation="activate_plan_step",
+        response={"accepted": True, "planStepId": "step_02_generate_question_set"},
+        transitions=(
+            (
+                StateTransitionKind.PLAN_STEP_ACTIVATED,
+                {"planStepId": "step_02_generate_question_set"},
+            ),
+        ),
+    )
+
+    assert first["status"] == "created"
+    assert duplicate["status"] == "replayed"
+    assert duplicate["response"] == first["response"]
+    assert duplicate["response"]["planStepId"] == "step_01_search_knowledge"
+    assert store.snapshot("run_state_002")["activePlanStepId"] == (
+        "step_01_search_knowledge"
+    )
+    assert store.snapshot("run_state_002")["transitionCount"] == 1
+
+
+def test_idempotent_key_cannot_be_reused_for_different_operation() -> None:
+    store = AgentRunStateStore()
+    store.record_idempotent_request(
+        agent_run_id="run_state_003",
+        idempotency_key="client_request_001",
+        operation="activate_plan_step",
+        response={"accepted": True},
+        transitions=(),
+    )
+
+    try:
+        store.record_idempotent_request(
+            agent_run_id="run_state_003",
+            idempotency_key="client_request_001",
+            operation="record_tool_call",
+            response={"accepted": True},
+            transitions=(),
+        )
+    except ValueError as exc:
+        assert str(exc) == (
+            "idempotency key client_request_001 was already used for "
+            "activate_plan_step"
+        )
+    else:
+        raise AssertionError("expected idempotency key reuse to fail")

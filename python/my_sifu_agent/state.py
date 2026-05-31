@@ -25,9 +25,20 @@ class StateTransition:
     created_at: str
 
 
+@dataclass(frozen=True)
+class IdempotentRequestRecord:
+    agent_run_id: str
+    idempotency_key: str
+    operation: str
+    response: dict[str, Any]
+
+
 @dataclass
 class AgentRunStateStore:
     _transitions: dict[str, list[StateTransition]] = field(default_factory=dict)
+    _idempotent_requests: dict[tuple[str, str], IdempotentRequestRecord] = field(
+        default_factory=dict
+    )
 
     def append_transition(
         self,
@@ -54,6 +65,51 @@ class AgentRunStateStore:
             _transition_to_json(transition)
             for transition in self._transitions.get(agent_run_id, [])
         ]
+
+    def record_idempotent_request(
+        self,
+        *,
+        agent_run_id: str,
+        idempotency_key: str,
+        operation: str,
+        response: dict[str, Any],
+        transitions: tuple[tuple[StateTransitionKind, dict[str, Any]], ...],
+    ) -> dict[str, Any]:
+        record_key = (agent_run_id, idempotency_key)
+        existing = self._idempotent_requests.get(record_key)
+        if existing is not None:
+            if existing.operation != operation:
+                raise ValueError(
+                    f"idempotency key {idempotency_key} was already used for "
+                    f"{existing.operation}"
+                )
+            return {
+                "status": "replayed",
+                "idempotencyKey": idempotency_key,
+                "operation": operation,
+                "response": existing.response,
+            }
+
+        for kind, payload in transitions:
+            self.append_transition(
+                agent_run_id=agent_run_id,
+                kind=kind,
+                payload=payload,
+            )
+
+        record = IdempotentRequestRecord(
+            agent_run_id=agent_run_id,
+            idempotency_key=idempotency_key,
+            operation=operation,
+            response=response,
+        )
+        self._idempotent_requests[record_key] = record
+        return {
+            "status": "created",
+            "idempotencyKey": idempotency_key,
+            "operation": operation,
+            "response": response,
+        }
 
     def snapshot(self, agent_run_id: str) -> dict[str, Any]:
         snapshot: dict[str, Any] = {
