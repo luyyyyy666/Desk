@@ -1,0 +1,75 @@
+{
+  "source_filename": "知微塾：一站式智慧教育平台.md",
+  "source_sha256": "f7cde7b1b7d9ebf52f6ab5532ece2442c42b30ed66ae3be21646ce1c8ac96e83",
+  "transformations": [
+    "移除团队成员姓名、职位、分工表",
+    "16 个外链图片替换为本地相对路径；图片字节保持原样",
+    "清理行尾空白和末尾空行；原 Markdown 双空格硬换行转换为显式 <br>，保留内容与换行语义"
+  ],
+  "images": [
+    {
+      "file": "assets/01.png",
+      "sha256": "db172930ea3a34fb6523a8470851ef5b042c834f91e6765e4d46f264abd33c90"
+    },
+    {
+      "file": "assets/02.png",
+      "sha256": "fad841c8ce4df8dcb93aa084a1f05004e27276e273f14befa330c1b4540792d5"
+    },
+    {
+      "file": "assets/03.png",
+      "sha256": "9e76bbfc9a051bcad0047be4f9c192bcd8a1bead75dacb1b37b86e260fca6927"
+    },
+    {
+      "file": "assets/04.png",
+      "sha256": "0d961885264c06facae5275df5ac48046fc93dc6410a1af5cdf8fed79aa52a57"
+    },
+    {
+      "file": "assets/05.png",
+      "sha256": "36587eff8e0d0cdc3fb869255fc545176d27fbceed7483d6c3add54596fe51bc"
+    },
+    {
+      "file": "assets/06.png",
+      "sha256": "1967aef6d7663095c580f933ef2498654f2e434d4ed75e3591691bb00b6f5eda"
+    },
+    {
+      "file": "assets/07.png",
+      "sha256": "24597a7f227fbc294bb3cf9f16d9e501930d63888137ffde63a040b738a65c5a"
+    },
+    {
+      "file": "assets/08.png",
+      "sha256": "57f5068f25aba1de41f6398bc6bddfeb3175672a915a371c4476bacedddd6656"
+    },
+    {
+      "file": "assets/09.png",
+      "sha256": "5beba781fcde4302d394f92a32a5008322af418db6597e4474a66cb6925316ff"
+    },
+    {
+      "file": "assets/10.png",
+      "sha256": "d74bdde713baba0ff77ed85aa1722a6ac38580c6a29a36f90f6332a497f76ecd"
+    },
+    {
+      "file": "assets/11.png",
+      "sha256": "c8b89700e818fedebeb42f7803af69f6d6f9aa8f400c818c8b2cbd07bd12c3e0"
+    },
+    {
+      "file": "assets/12.png",
+      "sha256": "06ef328bd0c024379a9a8c43efc4acc126173e04db4b647de86bc42c53d22a43"
+    },
+    {
+      "file": "assets/13.png",
+      "sha256": "36d4683c88347339de1750f8253596e77f9c06e068985cb4cf09f1a8c2f2baf3"
+    },
+    {
+      "file": "assets/14.png",
+      "sha256": "bd1c719372772bdf33f2ac7f7d5f44301b56427a34ef59b53afe87e45b7e1958"
+    },
+    {
+      "file": "assets/15.png",
+      "sha256": "0745d3300cc1bb0334cbedfbfda910ed4608e93070474f283201b0c72aba79b1"
+    },
+    {
+      "file": "assets/16.png",
+      "sha256": "86fa0638565276b94dbd6802b33ddd089f489a9e0b232d56eea3fffc82a127da"
+    }
+  ]
+}

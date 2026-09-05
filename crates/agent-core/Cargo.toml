@@ -1,8 +1,0 @@
-[package]
-name = "agent-core"
-edition.workspace = true
-license.workspace = true
-version.workspace = true
-
-[dependencies]
-domain.workspace = true
